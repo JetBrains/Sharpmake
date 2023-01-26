@@ -14,7 +14,7 @@ using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
 using Sharpmake.Generators;
-using Sharpmake.Generators.Generic;
+using Sharpmake.Generators.Rider;
 using Sharpmake.Generators.VisualStudio;
 
 namespace Sharpmake.Application
