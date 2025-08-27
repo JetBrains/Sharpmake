@@ -1,16 +1,6 @@
-﻿// Copyright (c) 2017-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,10 +14,11 @@ namespace Sharpmake
     {
         #region IPlatformDescriptor
         public abstract string SimplePlatformString { get; }
-        public virtual string GetPlatformString(ITarget target) { return SimplePlatformString; }
+        public abstract string GetToolchainPlatformString(ITarget target);
         public abstract bool IsMicrosoftPlatform { get; }
         public abstract bool IsPcPlatform { get; }
         public abstract bool IsUsingClang { get; }
+        public abstract bool IsLinkerInvokedViaCompiler { get; set; }
         public abstract bool HasDotNetSupport { get; }
         public abstract bool HasSharedLibrarySupport { get; }
         public virtual bool HasPrecompiledHeaderSupport => true;
@@ -103,6 +94,9 @@ namespace Sharpmake
                 context.CommandLineOptions["ResourcePreprocessorDefinitions"] = FileGeneratorUtilities.RemoveLineTag;
             }
         }
+        public virtual void SelectAdditionalCompilerOptionsBff(IBffGenerationContext context)
+        {
+        }
 
         public virtual void SetupExtraLinkerSettings(IFileGenerator fileGenerator, Project.Configuration configuration, string fastBuildOutputFile)
         {
@@ -120,6 +114,11 @@ namespace Sharpmake
         public virtual IEnumerable<Project.Configuration.BuildStepBase> GetExtraPostBuildEvents(Project.Configuration configuration, string fastBuildOutputFile)
         {
             return Enumerable.Empty<Project.Configuration.BuildStepBase>();
+        }
+
+        public virtual IEnumerable<Project.Configuration.BuildStepExecutable> GetExtraStampEvents(Project.Configuration configuration, string fastBuildOutputFile)
+        {
+            return Enumerable.Empty<Project.Configuration.BuildStepExecutable>();
         }
 
         public virtual string GetOutputFilename(Project.Configuration.OutputType outputType, string fastBuildOutputFile) => fastBuildOutputFile;
@@ -182,6 +181,11 @@ namespace Sharpmake
         public IEnumerable<string> GetResourceIncludePaths(IGenerationContext context)
         {
             return GetResourceIncludePathsImpl(context);
+        }
+
+        public IEnumerable<string> GetAssemblyIncludePaths(IGenerationContext context)
+        {
+            return GetAssemblyIncludePathsImpl(context);
         }
 
         public virtual IEnumerable<string> GetCxUsingPath(IGenerationContext context)
@@ -335,6 +339,21 @@ namespace Sharpmake
         {
         }
 
+        public virtual void GenerateProjectNasmVcxproj(IVcxprojGenerationContext context, IFileGenerator generator)
+        {
+            // Fill Assembly include dirs
+            var preIncludedFiles = new List<string>();
+            preIncludedFiles.AddRange(context.Project.NasmPreIncludedFiles.AsEnumerable<string>());
+
+            string preIncludedFilesJoined = string.Join(';', preIncludedFiles);
+
+            using (generator.Declare("ExePath", context.Project.NasmExePath))
+            using (generator.Declare("PreIncludedFiles", preIncludedFilesJoined))
+            {
+                generator.Write(_projectConfigurationsNasmTemplate);
+            }
+        }
+
         public virtual void GenerateUserConfigurationFile(Project.Configuration conf, IFileGenerator generator)
         {
             generator.Write(_userFileConfigurationGeneralTemplate);
@@ -471,11 +490,12 @@ namespace Sharpmake
             yield break;
         }
 
-        public virtual void SetupPlatformLibraryOptions(ref string platformLibExtension, ref string platformOutputLibExtension, ref string platformPrefixExtension)
+        public virtual void SetupPlatformLibraryOptions(out string platformLibExtension, out string platformOutputLibExtension, out string platformPrefixExtension, out string platformLibPrefix)
         {
             platformLibExtension = ".lib";
-            platformOutputLibExtension = "";
+            platformOutputLibExtension = ".lib";
             platformPrefixExtension = string.Empty;
+            platformLibPrefix = string.Empty;
         }
 
         protected virtual string GetProjectLinkExecutableVcxprojTemplate()
@@ -506,6 +526,8 @@ namespace Sharpmake
             includePaths.AddRange(context.Configuration.IncludePrivatePaths);
             includePaths.AddRange(context.Configuration.IncludePaths);
             includePaths.AddRange(context.Configuration.DependenciesIncludePaths);
+            includePaths.AddRange(context.Configuration.IncludeSystemPaths);
+            includePaths.AddRange(context.Configuration.DependenciesIncludeSystemPaths);
 
             includePaths.Sort();
             return includePaths;
@@ -524,6 +546,11 @@ namespace Sharpmake
             resourceIncludePaths.AddRange(context.Configuration.DependenciesResourceIncludePaths);
 
             return resourceIncludePaths;
+        }
+
+        protected virtual IEnumerable<string> GetAssemblyIncludePathsImpl(IGenerationContext context)
+        {
+            yield break;
         }
 
         #endregion

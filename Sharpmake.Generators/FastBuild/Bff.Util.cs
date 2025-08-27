@@ -1,16 +1,5 @@
-﻿// Copyright (c) 2017-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -37,34 +26,40 @@ namespace Sharpmake.Generators.FastBuild
             public string UnityInputObjectLists = FileGeneratorUtilities.RemoveLineTag; // (optional) ObjectList(s) to use as input
             public string UnityInputIsolateWritableFiles = FileGeneratorUtilities.RemoveLineTag; // (optional) Build writable files individually (default false)
             public string UnityInputIsolateWritableFilesLimit = FileGeneratorUtilities.RemoveLineTag; // (optional) Disable isolation when many files are writable (default 0)
+            public string UnityInputIsolateListFile = FileGeneratorUtilities.RemoveLineTag; // (optional) Text file containing list of files to isolate
             public string UnityOutputPattern = FileGeneratorUtilities.RemoveLineTag; // (optional) Pattern of output Unity file names (default Unity*cpp)
             public string UnityNumFiles = FileGeneratorUtilities.RemoveLineTag; // (optional) Number of Unity files to generate (default 1)
             public string UnityPCH = FileGeneratorUtilities.RemoveLineTag; // (optional) Precompiled Header file to add to generated Unity files
             public string UseRelativePaths = FileGeneratorUtilities.RemoveLineTag; // (optional) Use relative paths for generated Unity files
-
+            public Byte UnitySectionBucket = 0; // Internal sharpmake field used to force separate unity sections in certain cases.
             public const string DefaultUnityInputPatternExtension = ".cpp";
+            public const string DefaultUnityOutputPatternExtension = "Unity*.cpp";
+
+            internal string UnityFullOutputPath = string.Empty; // Path to output generated Unity files
 
             public override int GetHashCode()
             {
                 unchecked // Overflow is fine, just wrap
                 {
                     int hash = 17;
-                    hash = hash * 23 + UnityName.GetHashCode();
-                    hash = hash * 23 + UnityOutputPath.GetHashCode();
-                    hash = hash * 23 + UnityInputPath.GetHashCode();
-                    hash = hash * 23 + UnityInputExcludePath.GetHashCode();
-                    hash = hash * 23 + UnityInputExcludePattern.GetHashCode();
-                    hash = hash * 23 + UnityInputPattern.GetHashCode();
-                    hash = hash * 23 + UnityInputPathRecurse.GetHashCode();
-                    hash = hash * 23 + UnityInputFiles.GetHashCode();
-                    hash = hash * 23 + UnityInputExcludedFiles.GetHashCode();
-                    hash = hash * 23 + UnityInputObjectLists.GetHashCode();
-                    hash = hash * 23 + UnityInputIsolateWritableFiles.GetHashCode();
-                    hash = hash * 23 + UnityInputIsolateWritableFilesLimit.GetHashCode();
-                    hash = hash * 23 + UnityOutputPattern.GetHashCode();
-                    hash = hash * 23 + UnityNumFiles.GetHashCode();
-                    hash = hash * 23 + UnityPCH.GetHashCode();
-                    hash = hash * 23 + UseRelativePaths.GetHashCode();
+                    hash = hash * 23 + UnityName.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityOutputPath.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityInputPath.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityInputExcludePath.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityInputExcludePattern.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityInputPattern.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityInputPathRecurse.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityInputFiles.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityInputExcludedFiles.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityInputObjectLists.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityInputIsolateWritableFiles.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityInputIsolateWritableFilesLimit.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityInputIsolateListFile.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityOutputPattern.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityNumFiles.GetDeterministicHashCode();
+                    hash = hash * 23 + UnityPCH.GetDeterministicHashCode();
+                    hash = hash * 23 + UseRelativePaths.GetDeterministicHashCode();
+                    hash = hash * 23 + UnitySectionBucket;
 
                     return hash;
                 }
@@ -96,10 +91,12 @@ namespace Sharpmake.Generators.FastBuild
                     && string.Equals(UnityInputObjectLists, unity.UnityInputObjectLists)
                     && string.Equals(UnityInputIsolateWritableFiles, unity.UnityInputIsolateWritableFiles)
                     && string.Equals(UnityInputIsolateWritableFilesLimit, unity.UnityInputIsolateWritableFilesLimit)
+                    && string.Equals(UnityInputIsolateListFile, unity.UnityInputIsolateListFile)
                     && string.Equals(UnityOutputPattern, unity.UnityOutputPattern)
                     && string.Equals(UnityNumFiles, unity.UnityNumFiles)
                     && string.Equals(UnityPCH, unity.UnityPCH)
-                    && string.Equals(UseRelativePaths, unity.UseRelativePaths);
+                    && string.Equals(UseRelativePaths, unity.UseRelativePaths)
+                    && UnitySectionBucket == unity.UnitySectionBucket;
             }
         }
 
@@ -159,7 +156,7 @@ namespace Sharpmake.Generators.FastBuild
                 using (resolver.NewScopedParameter("fastBuildPrebuildWorkingPath", UtilityMethods.GetNormalizedPathForBuildStep(rootPath, bffFilePath, WorkingPath)))
                 using (resolver.NewScopedParameter("fastBuildPrebuildUseStdOutAsOutput", UseStdOutAsOutput ? "true" : FileGeneratorUtilities.RemoveLineTag))
                 using (resolver.NewScopedParameter("fastBuildPrebuildAlwaysShowOutput", AlwaysShowOutput ? "true" : FileGeneratorUtilities.RemoveLineTag))
-                using (resolver.NewScopedParameter("fastBuildExecPreBuildDependencies", Dependencies.Count > 0 ? UtilityMethods.FBuildFormatList(Dependencies.ToList(), 26) : FileGeneratorUtilities.RemoveLineTag))
+                using (resolver.NewScopedParameter("fastBuildExecPreBuildDependencies", Dependencies.Count > 0 ? UtilityMethods.FBuildFormatList(Dependencies.Values, 26) : FileGeneratorUtilities.RemoveLineTag))
                 using (resolver.NewScopedParameter("fastBuildExecAlways", ExecAlways ? "true" : FileGeneratorUtilities.RemoveLineTag))
                 {
                     return resolver.Resolve(Bff.Template.ConfigurationFile.GenericExecutableSection);
@@ -208,6 +205,9 @@ namespace Sharpmake.Generators.FastBuild
                 Destination = buildStep.DestinationPath;
                 Recurse = buildStep.IsRecurse;
                 FilePattern = buildStep.CopyPattern;
+
+                if (buildStep.Mirror)
+                    throw new Exception("Copy build step with the '{nameof(Project.Configuration.BuildStepCopy.Mirror)}' option enabled is not supported in a FastBuild context");
             }
 
             public override string Resolve(string rootPath, string bffFilePath, Resolver resolver)
@@ -267,25 +267,42 @@ namespace Sharpmake.Generators.FastBuild
             }
         }
 
-        // This NMake command generator is for supporting legacy code without any client code change.
-        internal class FastBuildDefaultNMakeCommandGenerator : FastBuildMakeCommandGenerator
+        /// <summary>
+        /// This class is used as a helper for generating fastbuild commands for vcxproj and xcode projects. 
+        /// By default is uses the default fastbuild executable defined in FastBuildSettings but scripts could define another class to 
+        /// to launch a totally different launcher with other parameters.
+        /// </summary>
+        public class FastBuildDefaultCommandGenerator : FastBuildMakeCommandGenerator
         {
-            public override string GetCommand(BuildType buildType, Sharpmake.Project.Configuration conf, string fastbuildArguments)
+            public override string GetExecutablePath(Sharpmake.Project.Configuration conf)
             {
-                Project project = conf.Project;
-                string fastBuildShortProjectName = Bff.GetShortProjectName(project, conf);
+                string fastbuildMakeCommand = FastBuildSettings.FastBuildMakeCommand;
+                if (fastbuildMakeCommand != null)
+                {
+                    if (!Path.IsPathRooted(FastBuildSettings.FastBuildMakeCommand))
+                        fastbuildMakeCommand = Path.Combine(conf.Project.RootPath, FastBuildSettings.FastBuildMakeCommand);
+                    fastbuildMakeCommand = Util.SimplifyPath(fastbuildMakeCommand);
+                }
+                return fastbuildMakeCommand ?? "<Please define FastBuildSettings.FastBuildMakeCommand>";
+            }
 
-                string makePath = FastBuildSettings.FastBuildMakeCommand;
-                if (!Path.IsPathRooted(FastBuildSettings.FastBuildMakeCommand))
-                    makePath = conf.Project.RootPath + Path.DirectorySeparatorChar + FastBuildSettings.FastBuildMakeCommand;
-                makePath = Util.SimplifyPath(makePath);
+            public override string GetArguments(BuildType buildType, Sharpmake.Project.Configuration conf, string fastbuildArguments)
+            {
+                // Note: XCode is special, the target identifier is written in the xcode project file for each target using the FASTBUILD_TARGET special variable.
+                string targetIdentifier = "";
+                if (!conf.Target.TryGetFragment<DevEnv>(out DevEnv devEnv) || devEnv != DevEnv.xcode)
+                {
+                    targetIdentifier = GetTargetIdentifier(conf);
+                }
 
-                string fastBuildExecutable = Util.PathGetRelative(conf.ProjectPath, makePath, true);
+                string buildCommand = buildType == BuildType.Rebuild ? " -clean" : "";
 
-                string rebuildCmd = buildType == BuildType.Rebuild ? " -clean" : "";
+                return $@"{buildCommand} {targetIdentifier} {fastbuildArguments}";
+            }
 
-                // $(ProjectDir) has a trailing slash
-                return $@"""$(ProjectDir){fastBuildExecutable}""{rebuildCmd} {fastBuildShortProjectName} {fastbuildArguments}";
+            public override string GetTargetIdentifier(Sharpmake.Project.Configuration conf)
+            {
+                return Bff.GetShortProjectName(conf.Project, conf);
             }
         }
 
@@ -294,21 +311,26 @@ namespace Sharpmake.Generators.FastBuild
             void ResolveUnities(Project project, string projectPath, ref Dictionary<Unity, List<Project.Configuration>> unities);
         }
 
+        // Unity file resolver based on the hash of the property values of the Unity object.
+        // Pros: simple and fast.
+        // Cons: - Output names are not readable.
+        //       - Also resulting unity names are sensitive to small changes, which can affect build determinism between computers.
+        //         Example: Build Machines may deactivate UnityInputIsolateWritableFiles, resulting in a different name than for dev machines.
         public class HashUnityResolver : IUnityResolver
         {
             public void ResolveUnities(Project project, string projectPath, ref Dictionary<Unity, List<Project.Configuration>> unities)
             {
+                string projectRelativePath = Util.PathGetRelative(project.RootPath, projectPath, true);
+                int projectRelativePathHash = projectRelativePath.GetDeterministicHashCode();
+
                 foreach (var unitySection in unities)
                 {
                     var unity = unitySection.Key;
                     var unityConfigurations = unitySection.Value;
-                    var projectRelativePath = Util.PathGetRelative(project.RootPath, projectPath, true);
 
                     // Don't use Object.GetHashCode() on a int[] object from GetMergedFragmentValuesAcrossConfigurations() as it is
-                    // non-deterministic and depends on order of execution. String.GetHashCode() is stable as long as we don't use
-                    // <UseRandomizedStringHashAlgorithm enabled="1" /> in the application config file, or as long as we don't use
-                    // .NET Core. It can change between .NET versions, however; naming should be stable between different runs on the same machine.
-                    int hashcode = unity.GetHashCode() ^ projectRelativePath.GetHashCode() ^ string.Join("_", unityConfigurations).GetHashCode();
+                    // non-deterministic and depends on order of execution.
+                    int hashcode = unity.GetHashCode() ^ projectRelativePathHash ^ string.Join("_", unityConfigurations).GetDeterministicHashCode();
 
                     unity.UnityName = $"{project.Name}_unity_{hashcode:X8}";
                     unity.UnityOutputPattern = unity.UnityName.ToLower() + "*.cpp";
@@ -316,6 +338,12 @@ namespace Sharpmake.Generators.FastBuild
             }
         }
 
+        // Unity file resolver based on the fragments of the configurations that share it.
+        // The fragment names that are not relevant are discarded from the output name.
+        // Pros: - User friendly names.
+        //       - Independent from the content of the Unity object.
+        // Cons: - Output name length can be come long if many fragment values are involved.
+        //       - A bit complex, involving smartness to discard fragments.
         public class FragmentUnityResolver : IUnityResolver
         {
             public void ResolveUnities(Project project, string projectPath, ref Dictionary<Unity, List<Project.Configuration>> unities)
@@ -359,32 +387,74 @@ namespace Sharpmake.Generators.FastBuild
                         if (!differentFragmentIndices.Contains(i))
                             continue;
 
-                        // Convert from int to the fragment enum type, so we can ToString() them.
-                        // Fragments are enums by contract, so Enum.ToObject works
-                        var typedFragment = Enum.ToObject(fragmentsInfos[i].FieldType, unityFragments[i]);
-
-                        if (typedFragment is Platform)
-                        {
-                            Platform platformFragment = (Platform)typedFragment;
-                            foreach (Platform platformEnum in Enum.GetValues(typeof(Platform)))
-                            {
-                                if (!platformFragment.HasFlag(platformEnum))
-                                    continue;
-
-                                string platformString = platformEnum.ToString();
-                                if (platformEnum >= Platform._reserved9)
-                                    platformString = Util.GetSimplePlatformString(platformEnum);
-                                fragmentString += "_" + SanitizeForUnityName(platformString).ToLower();
-                            }
-                        }
-                        else
-                        {
-                            fragmentString += "_" + SanitizeForUnityName(typedFragment.ToString());
-                        }
+                        AppendFragmentUnityName(fragmentsInfos[i], unityFragments[i], ref fragmentString);
                     }
                     unity.UnityName = project.Name + fragmentString + "_unity";
                     unity.UnityOutputPattern = unity.UnityName.ToLower() + "*.cpp";
                 }
+            }
+        }
+
+        // Unity file resolver based on the hash of the fragments of the configurations that share it.
+        // It is simpler/faster than FragmentUnityResolver, because it doesn't need to discard useless fragments.
+        // Pros: - Relatively simple and fast.
+        //       - Independent from the content of the Unity object.
+        //       - More deterministic than FragmentUnityResolver.
+        //         Discarding of useless fragments, which could affect determinism when adding/removing unrelated targets.
+        // Cons: - Names are not user friendly.
+        public class FragmentHashUnityResolver : IUnityResolver
+        {
+            public void ResolveUnities(Project project, string projectPath, ref Dictionary<Unity, List<Project.Configuration>> unities)
+            {
+                // we need to compute the missing member values in the Unity objects:
+                // UnityName and UnityOutputPattern
+
+                List<FieldInfo> fragmentsInfos = null;
+
+                // merge the fragment values of all configurations sharing a unity
+                foreach (var unitySection in unities)
+                {
+                    var unity = unitySection.Key;
+                    var configurations = unitySection.Value;
+
+                    var fragmentValuesPerConfig = configurations.Select(x => x.Target.GetFragmentsValue()).ToList();
+                    var unityFragments = GetMergedFragments(fragmentValuesPerConfig);
+
+                    // get the fragment info from the first configuration target,
+                    // which works as they all share the same Target type
+                    if (fragmentsInfos == null)
+                        fragmentsInfos = new List<FieldInfo>(configurations.First().Target.GetFragmentFieldInfo());
+
+                    string fragmentString = string.Empty;
+                    for (int i = 0; i < unityFragments.Length; ++i)
+                        AppendFragmentUnityName(fragmentsInfos[i], unityFragments[i], ref fragmentString);
+
+                    int hashcode = fragmentString.ToLowerInvariant().GetDeterministicHashCode();
+                    unity.UnityName = $"{project.Name}_unity_{hashcode:X8}";
+                    unity.UnityOutputPattern = unity.UnityName.ToLower() + "*.cpp";
+                }
+            }
+        }
+
+        private static void AppendFragmentUnityName(FieldInfo fragmentFieldInfo, int unityFragment, ref string fragmentString)
+        {
+            // Convert from int to the fragment enum type, so we can ToString() them.
+            // Fragments are enums by contract, so Enum.ToObject works
+            var typedFragment = Enum.ToObject(fragmentFieldInfo.FieldType, unityFragment);
+
+            if (typedFragment is Platform platformFragment)
+            {
+                foreach (Platform platformEnum in Enum.GetValues(typeof(Platform)))
+                {
+                    if (!platformFragment.HasFlag(platformEnum))
+                        continue;
+
+                    fragmentString += "_" + SanitizeForUnityName(Util.GetSimplePlatformString(platformEnum)).ToLower();
+                }
+            }
+            else
+            {
+                fragmentString += "_" + SanitizeForUnityName(typedFragment.ToString());
             }
         }
 
@@ -519,14 +589,14 @@ namespace Sharpmake.Generators.FastBuild
 
         internal static string GetFastBuildCopyAlias(string sourceFileName, string destinationFolder)
         {
-            string fastBuildCopyAlias = string.Format("Copy_{0}_{1}", sourceFileName, (destinationFolder + sourceFileName).GetHashCode().ToString("X8"));
+            string fastBuildCopyAlias = string.Format("Copy_{0}_{1}", sourceFileName, (destinationFolder + sourceFileName).GetDeterministicHashCode().ToString("X8"));
             return fastBuildCopyAlias;
         }
 
         internal static string GetBffFileCopyPattern(string copyPattern)
         {
             if (string.IsNullOrEmpty(copyPattern))
-                return copyPattern;
+                return FileGeneratorUtilities.RemoveLineTag;
 
             string[] patterns = copyPattern.Split(null);
 
@@ -534,6 +604,74 @@ namespace Sharpmake.Generators.FastBuild
                 return "'" + copyPattern + "'";
 
             return "{ " + string.Join(", ", patterns.Select(p => "'" + p + "'")) + " }";
+        }
+
+        internal static string GetFastBuildCommandLineArguments(this Project.Configuration conf)
+        {
+            // FastBuild command line
+            var fastBuildCommandLineOptions = new List<string>();
+
+            if (FastBuildSettings.FastBuildUseIDE)
+                fastBuildCommandLineOptions.Add("-ide");
+
+            if (FastBuildSettings.FastBuildReport)
+                fastBuildCommandLineOptions.Add("-report");
+
+            if (FastBuildSettings.FastBuildNoSummaryOnError)
+                fastBuildCommandLineOptions.Add("-nosummaryonerror");
+
+            if (FastBuildSettings.FastBuildSummary)
+                fastBuildCommandLineOptions.Add("-summary");
+
+            if (FastBuildSettings.FastBuildVerbose)
+                fastBuildCommandLineOptions.Add("-verbose");
+
+            if (FastBuildSettings.FastBuildMonitor)
+                fastBuildCommandLineOptions.Add("-monitor");
+
+            // Configuring cache mode if that configuration is allowed to use caching
+            if (conf.FastBuildCacheAllowed)
+            {
+                // Setting the appropriate cache type commandline for that target.
+                switch (FastBuildSettings.CacheType)
+                {
+                    case FastBuildSettings.CacheTypes.CacheRead:
+                        fastBuildCommandLineOptions.Add("-cacheread");
+                        break;
+                    case FastBuildSettings.CacheTypes.CacheWrite:
+                        fastBuildCommandLineOptions.Add("-cachewrite");
+                        break;
+                    case FastBuildSettings.CacheTypes.CacheReadWrite:
+                        fastBuildCommandLineOptions.Add("-cache");
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            if (FastBuildSettings.FastBuildDistribution && conf.FastBuildDistribution)
+                fastBuildCommandLineOptions.Add("-dist");
+
+            if (FastBuildSettings.FastBuildWait)
+                fastBuildCommandLineOptions.Add("-wait");
+
+            if (FastBuildSettings.FastBuildNoStopOnError)
+                fastBuildCommandLineOptions.Add("-nostoponerror");
+
+            if (FastBuildSettings.FastBuildFastCancel)
+                fastBuildCommandLineOptions.Add("-fastcancel");
+
+            if (FastBuildSettings.FastBuildNoUnity)
+                fastBuildCommandLineOptions.Add("-nounity");
+
+            if (!string.IsNullOrEmpty(conf.FastBuildCustomArgs))
+                fastBuildCommandLineOptions.Add(conf.FastBuildCustomArgs);
+
+            if (!string.IsNullOrEmpty(FastBuildSettings.FastBuildCustomArguments))
+                fastBuildCommandLineOptions.Add(FastBuildSettings.FastBuildCustomArguments);
+
+            string commandLine = string.Join(" ", fastBuildCommandLineOptions);
+            return commandLine;
         }
 
         internal static List<Project.Configuration> GetOrderedFlattenedProjectDependencies(Project.Configuration conf, bool allDependencies = true, bool fuDependencies = false)
@@ -641,18 +779,45 @@ namespace Sharpmake.Generators.FastBuild
         }
 
         /// <summary>
+        /// Format list options. Can combine many of them.
+        /// </summary>
+        public enum FBuildFormatListOptions
+        {
+            /// <summary>
+            /// No formatting option
+            /// </summary>
+            None = 0,
+            /// <summary>
+            /// Quote Items ?
+            /// </summary>
+            QuoteItems = 1 << 0,
+            /// <summary>
+            /// Use single element short format ?
+            /// </summary>
+            UseSingleElementShortFormat = 1 << 1,
+            /// <summary>
+            /// Use Comma between each element ? 
+            /// </summary>
+            UseCommaBetweenElements = 1 << 2,
+        }
+
+        /// <summary>
         /// Build a list of string in the format of BFF array, on multiple lines if needed, indenting using spaceLength spaces.
         /// </summary>
         /// <param name="items">The list of values to put in the BFF array.</param>
         /// <param name="spaceLength">The indentation size, in spaces, in case multiple lines are generated.</param>
+        /// <param name="options">output options</param>
         /// <returns>The formatted string, or <see cref="FileGeneratorUtilities.RemoveLineTag"/> if the list is empty.</returns>
-        public static string FBuildFormatList(List<string> items, int spaceLength)
+        public static string FBuildFormatList(List<string> items, int spaceLength, FBuildFormatListOptions options = FBuildFormatListOptions.QuoteItems | FBuildFormatListOptions.UseSingleElementShortFormat | FBuildFormatListOptions.UseCommaBetweenElements)
         {
             if (items.Count == 0)
                 return FileGeneratorUtilities.RemoveLineTag;
 
-            if (items.Count == 1)
-                return FBuildFormatSingleListItem(items.First());
+            if (options.HasAnyFlag(FBuildFormatListOptions.UseSingleElementShortFormat))
+            {
+                if (items.Count == 1)
+                    return FBuildFormatSingleListItem(items.First());
+            }
 
             //
             // Write all selected items.
@@ -667,8 +832,12 @@ namespace Sharpmake.Generators.FastBuild
             int itemIndex = 0;
             foreach (string item in items)
             {
-                strBuilder.AppendFormat("{0}    '{1}'", indent, item);
-                if (++itemIndex < items.Count)
+                if (options.HasAnyFlag(FBuildFormatListOptions.QuoteItems))
+                    strBuilder.AppendFormat("{0}    '{1}'", indent, item);
+                else
+                    strBuilder.AppendFormat("{0}    {1}", indent, item);
+
+                if (++itemIndex < items.Count && options.HasAnyFlag(FBuildFormatListOptions.UseCommaBetweenElements))
                     strBuilder.AppendLine(",");
                 else
                     strBuilder.AppendLine();
@@ -678,7 +847,7 @@ namespace Sharpmake.Generators.FastBuild
             return strBuilder.ToString();
         }
 
-        internal static void WriteCustomBuildStepAsGenericExecutable(string projectRoot, FileGenerator bffGenerator, Project.Configuration.CustomFileBuildStep buildStep, Func<string, bool> functor)
+        internal static void WriteCustomBuildStepAsGenericExecutable(string projectRoot, FileGenerator bffGenerator, Project.Configuration.CustomFileBuildStep buildStep, Func<Project.Configuration.CustomFileBuildStepData, bool> functor)
         {
             var relativeBuildStep = buildStep.MakePathRelative(bffGenerator.Resolver,
                 (path, commandRelative) =>
@@ -699,12 +868,14 @@ namespace Sharpmake.Generators.FastBuild
             using (bffGenerator.Declare("fastBuildPrebuildWorkingPath", FileGeneratorUtilities.RemoveLineTag))
             using (bffGenerator.Declare("fastBuildPrebuildUseStdOutAsOutput", FileGeneratorUtilities.RemoveLineTag))
             using (bffGenerator.Declare("fastBuildPrebuildAlwaysShowOutput", FileGeneratorUtilities.RemoveLineTag))
+            using (bffGenerator.Declare("fastBuildExecPreBuildDependencies", FileGeneratorUtilities.RemoveLineTag))
+            using (bffGenerator.Declare("fastBuildExecAlways", FileGeneratorUtilities.RemoveLineTag))
             {
-                functor(relativeBuildStep.Description);
+                functor(relativeBuildStep);
             }
         }
 
-        internal static void WriteConfigCustomBuildStepsAsGenericExecutable(string projectRoot, FileGenerator bffGenerator, Project project, Project.Configuration config, Func<string, bool> functor)
+        internal static void WriteConfigCustomBuildStepsAsGenericExecutable(string projectRoot, FileGenerator bffGenerator, Project project, Project.Configuration config, Func<Project.Configuration.CustomFileBuildStepData, bool> functor)
         {
             using (bffGenerator.Resolver.NewScopedParameter("project", project))
             using (bffGenerator.Resolver.NewScopedParameter("config", config))

@@ -1,16 +1,6 @@
-﻿// Copyright (c) 2017-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
 namespace Sharpmake
 {
     public abstract partial class BasePlatform
@@ -20,12 +10,15 @@ namespace Sharpmake
       <PrecompiledHeader>[options.UsePrecompiledHeader]</PrecompiledHeader>
       <CompileAsWinRT>[options.CompileAsWinRT]</CompileAsWinRT>
       <WarningLevel>[options.WarningLevel]</WarningLevel>
+      <TreatAngleIncludeAsExternal>[options.TreatAngleIncludeAsExternal]</TreatAngleIncludeAsExternal>
+      <ExternalWarningLevel>[options.ExternalWarningLevel]</ExternalWarningLevel>
+      <ExternalTemplatesDiagnostics>[options.ExternalTemplatesDiagnostics]</ExternalTemplatesDiagnostics>
       <Optimization>[options.Optimization]</Optimization>
-      <PreprocessorDefinitions>[options.PreprocessorDefinitions];%(PreprocessorDefinitions);$(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>[EscapeXML:options.PreprocessorDefinitions];%(PreprocessorDefinitions);$(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>[options.AdditionalIncludeDirectories]</AdditionalIncludeDirectories>
       <AdditionalUsingDirectories>[options.AdditionalUsingDirectories]</AdditionalUsingDirectories>
       <DebugInformationFormat>[options.DebugInformationFormat]</DebugInformationFormat>
-      <CompileAsManaged>[clrSupport]</CompileAsManaged>
+      <CompileAsManaged>[compileAsManaged]</CompileAsManaged>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <TreatWarningAsError>[options.TreatWarningAsError]</TreatWarningAsError>
       <DiagnosticsFormat>[options.DiagnosticsFormat]</DiagnosticsFormat>
@@ -42,6 +35,7 @@ namespace Sharpmake
       <PreprocessToFile>[options.GeneratePreprocessedFile]</PreprocessToFile>
       <PreprocessSuppressLineNumbers>[options.PreprocessSuppressLineNumbers]</PreprocessSuppressLineNumbers>
       <PreprocessKeepComments>[options.KeepComments]</PreprocessKeepComments>
+      <UseStandardPreprocessor>[options.UseStandardConformingPreprocessor]</UseStandardPreprocessor>
       <StringPooling>[options.StringPooling]</StringPooling>
       <MinimalRebuild>[options.MinimalRebuild]</MinimalRebuild>
       <ExceptionHandling>[options.ExceptionHandling]</ExceptionHandling>
@@ -72,7 +66,7 @@ namespace Sharpmake
       <CompileAs>Default</CompileAs>
       <DisableSpecificWarnings>[options.DisableSpecificWarnings]</DisableSpecificWarnings>
       <UndefinePreprocessorDefinitions>[options.UndefinePreprocessorDefinitions]</UndefinePreprocessorDefinitions>
-      <AdditionalOptions>[options.AdditionalCompilerOptions]</AdditionalOptions>
+      <AdditionalOptions>[options.AllAdditionalCompilerOptions]</AdditionalOptions>
       <PrecompiledHeaderFile>[options.PrecompiledHeaderThrough]</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>[options.PrecompiledHeaderFile]</PrecompiledHeaderOutputFile>
       <ProgramDatabaseFileName>[options.CompilerProgramDatabaseFile]</ProgramDatabaseFileName>
@@ -81,6 +75,9 @@ namespace Sharpmake
       <ForcedIncludeFiles>[options.ForcedIncludeFiles]</ForcedIncludeFiles>
       <ForcedUsingFiles>[options.ForcedUsingFiles]</ForcedUsingFiles>
       <SupportJustMyCode>[options.SupportJustMyCode]</SupportJustMyCode>
+      <MaxFilesInUnityFile>[options.MaxFilesPerJumboFile]</MaxFilesInUnityFile>
+      <MinFilesInUnityFile>[options.MinFilesPerJumboFile]</MinFilesInUnityFile>
+      <MinUnityFiles>[options.MinJumboFiles]</MinUnityFiles>
     </ClCompile>
 ";
 
@@ -167,6 +164,7 @@ namespace Sharpmake
     <LocalDebuggerCommandArguments>[conf.VcxprojUserFile.LocalDebuggerCommandArguments]</LocalDebuggerCommandArguments>
     <LocalDebuggerEnvironment>[conf.VcxprojUserFile.LocalDebuggerEnvironment]</LocalDebuggerEnvironment>
     <LocalDebuggerWorkingDirectory>[conf.VcxprojUserFile.LocalDebuggerWorkingDirectory]</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerAttach>[conf.VcxprojUserFile.LocalDebuggerAttachString]</LocalDebuggerAttach>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
 ";
 
@@ -175,9 +173,9 @@ namespace Sharpmake
     <ConfigurationType>[options.ConfigurationType]</ConfigurationType>
     <UseDebugLibraries>[options.UseDebugLibraries]</UseDebugLibraries>
     <PreferredToolArchitecture>[options.PreferredToolArchitecture]</PreferredToolArchitecture>
+    <TranslateIncludes>[options.TranslateIncludes]</TranslateIncludes>
     <CharacterSet>[options.CharacterSet]</CharacterSet>
     <UseOfMfc>[options.UseOfMfc]</UseOfMfc>
-    <CLRSupport>[clrSupport]</CLRSupport>
     <WholeProgramOptimization>[options.WholeProgramOptimization]</WholeProgramOptimization>
     <PlatformToolset>[options.PlatformToolset]</PlatformToolset>
     <TrackFileAccess>[options.TrackFileAccess]</TrackFileAccess>
@@ -185,6 +183,7 @@ namespace Sharpmake
     <WindowsTargetPlatformVersion>[options.WindowsTargetPlatformVersion]</WindowsTargetPlatformVersion>
     <SpectreMitigation>[options.SpectreMitigation]</SpectreMitigation>
     <EnableASAN>[options.EnableASAN]</EnableASAN>
+    <EnableUnitySupport>[options.JumboBuild]</EnableUnitySupport>
   </PropertyGroup>
 ";
 
@@ -203,12 +202,23 @@ namespace Sharpmake
     <EmbedManifest>[options.EmbedManifest]</EmbedManifest>
     <IgnoreImportLibrary>[options.IgnoreImportLibrary]</IgnoreImportLibrary>
     <RunCodeAnalysis>[options.RunCodeAnalysis]</RunCodeAnalysis>
+    <EnableMicrosoftCodeAnalysis>[options.MicrosoftCodeAnalysis]</EnableMicrosoftCodeAnalysis>
+    <EnableClangTidyCodeAnalysis>[options.ClangTidyCodeAnalysis]</EnableClangTidyCodeAnalysis>
+    <CAExcludepath>[options.CAexcludePaths];%(CAExcludepath)</CAExcludepath>
     <CustomBuildBeforeTargets>[options.CustomBuildStepBeforeTargets]</CustomBuildBeforeTargets>
     <CustomBuildAfterTargets>[options.CustomBuildStepAfterTargets]</CustomBuildAfterTargets>
     <ExecutablePath>[options.ExecutablePath]</ExecutablePath>
     <IncludePath>[options.IncludePath]</IncludePath>
+    <ExternalIncludePath>[options.ExternalIncludePath]</ExternalIncludePath>
+    <ReferencePath>[options.ReferencePath]</ReferencePath>
     <LibraryPath>[options.LibraryPath]</LibraryPath>
+    <LibraryWPath>[options.LibraryWPath]</LibraryWPath>
+    <SourcePath>[options.SourcePath]</SourcePath>
     <ExcludePath>[options.ExcludePath]</ExcludePath>
+    <PublicIncludeDirectories>[options.PublicIncludeDirectories]</PublicIncludeDirectories>
+    <AllProjectIncludesArePublic>[options.AllProjectIncludesArePublic]</AllProjectIncludesArePublic>
+    <PublicModuleDirectories>[options.PublicModuleDirectories]</PublicModuleDirectories>
+    <AllProjectBMIsArePublic>[options.AllProjectBMIsArePublic]</AllProjectBMIsArePublic>
     <DisableFastUpToDateCheck>[options.DisableFastUpToDateCheck]</DisableFastUpToDateCheck>
     <EnableManagedIncrementalBuild>[options.EnableManagedIncrementalBuild]</EnableManagedIncrementalBuild>
     <UseClangCl>[options.UseClangCl]</UseClangCl>
@@ -244,26 +254,35 @@ namespace Sharpmake
             @"  <PropertyGroup Condition=""'$(Configuration)|$(Platform)'=='[conf.Name]|[platformName]'"">
     <OutDir>[options.OutputDirectory]\</OutDir>
     <IntDir>[options.IntermediateDirectory]\</IntDir>
-    <NMakeBuildCommandLine>cd [relativeMasterBffPath]
+    <NMakeBuildCommandLine>cd [fastBuildWorkingDirectory]
 [conf.FastBuildCustomActionsBeforeBuildCommand]
 [fastBuildMakeCommandBuild] </NMakeBuildCommandLine>
-    <NMakeReBuildCommandLine>cd [relativeMasterBffPath]
+    <NMakeReBuildCommandLine>cd [fastBuildWorkingDirectory]
 [conf.FastBuildCustomActionsBeforeBuildCommand]
 [fastBuildMakeCommandRebuild] </NMakeReBuildCommandLine>
-    <NMakeCleanCommandLine>del ""[options.IntermediateDirectory]\*unity*.cpp"" >NUL 2>NUL
-del ""[options.IntermediateDirectory]\*.obj"" >NUL 2>NUL
-del ""[options.IntermediateDirectory]\*.a"" >NUL 2>NUL
-del ""[options.IntermediateDirectory]\*.lib"" >NUL 2>NUL
-del ""[options.OutputDirectory]\[conf.TargetFileFullName].exe"" >NUL 2>NUL
-del ""[options.OutputDirectory]\[conf.TargetFileFullName].elf"" >NUL 2>NUL
-del ""[options.OutputDirectory]\[conf.TargetFileFullName].exp"" >NUL 2>NUL
-del ""[options.OutputDirectory]\[conf.TargetFileFullName].ilk"" >NUL 2>NUL
-del ""[options.OutputDirectory]\[conf.TargetFileFullName].lib"" >NUL 2>NUL
-del ""[options.OutputDirectory]\[conf.TargetFileFullName].pdb"" >NUL 2>NUL</NMakeCleanCommandLine>
+    <NMakeCleanCommandLine>del ""[options.IntermediateDirectory]\*unity*.cpp"" &gt;NUL 2&gt;NUL
+del ""[options.IntermediateDirectory]\*.obj"" &gt;NUL 2&gt;NUL
+del ""[options.IntermediateDirectory]\*.a"" &gt;NUL 2&gt;NUL
+del ""[options.IntermediateDirectory]\*.lib"" &gt;NUL 2&gt;NUL
+del ""[options.OutputDirectory]\[conf.TargetFileFullName].exe"" &gt;NUL 2&gt;NUL
+del ""[options.OutputDirectory]\[conf.TargetFileFullName].elf"" &gt;NUL 2&gt;NUL
+del ""[options.OutputDirectory]\[conf.TargetFileFullName].exp"" &gt;NUL 2&gt;NUL
+del ""[options.OutputDirectory]\[conf.TargetFileFullName].ilk"" &gt;NUL 2&gt;NUL
+del ""[options.OutputDirectory]\[conf.TargetFileFullName].lib"" &gt;NUL 2&gt;NUL
+del ""[options.OutputDirectory]\[conf.TargetFileFullName].pdb"" &gt;NUL 2&gt;NUL</NMakeCleanCommandLine>
     <NMakeOutput>[options.OutputFile]</NMakeOutput>
-    <NMakePreprocessorDefinitions>[options.PreprocessorDefinitions]</NMakePreprocessorDefinitions>
-    <NMakeIncludeSearchPath>[options.AdditionalIncludeDirectories]</NMakeIncludeSearchPath>
+    <NMakePreprocessorDefinitions>[EscapeXML:options.PreprocessorDefinitions][EscapeXML:options.IntellisenseAdditionalDefines]</NMakePreprocessorDefinitions>
+    <NMakeIncludeSearchPath>[options.NMakeIncludeSearchPath]</NMakeIncludeSearchPath>
+    <NMakeForcedIncludes>[options.ForcedIncludeFiles]</NMakeForcedIncludes>
+    <AdditionalOptions>[options.IntellisenseCommandLineOptions]</AdditionalOptions>
   </PropertyGroup>
+  <ItemDefinitionGroup Condition=""'$(Configuration)|$(Platform)'=='[conf.Name]|[platformName]'"">
+    <NMakeCompile>
+      <NMakeCompileFileCommandLine>cd [fastBuildWorkingDirectory]
+[conf.FastBuildCustomActionsBeforeBuildCommand]
+[fastBuildMakeCommandCompileFile] </NMakeCompileFileCommandLine>
+    </NMakeCompile>
+  </ItemDefinitionGroup>
 ";
 
         private const string _projectConfigurationsCustomMakefile =
@@ -274,9 +293,25 @@ del ""[options.OutputDirectory]\[conf.TargetFileFullName].pdb"" >NUL 2>NUL</NMak
     <NMakeReBuildCommandLine>[conf.CustomBuildSettings.RebuildCommand]</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>[conf.CustomBuildSettings.CleanCommand]</NMakeCleanCommandLine>
     <NMakeOutput>[conf.CustomBuildSettings.OutputFile]</NMakeOutput>
-    <NMakePreprocessorDefinitions>[options.PreprocessorDefinitions]</NMakePreprocessorDefinitions>
-    <NMakeIncludeSearchPath>[options.AdditionalIncludeDirectories]</NMakeIncludeSearchPath>
+    <NMakePreprocessorDefinitions>[EscapeXML:options.PreprocessorDefinitions]</NMakePreprocessorDefinitions>
+    <NMakeIncludeSearchPath>[options.NMakeIncludeSearchPath]</NMakeIncludeSearchPath>
+    <NMakeForcedIncludes>[options.ForcedIncludeFiles]</NMakeForcedIncludes>
+    <AdditionalOptions>[options.IntellisenseCommandLineOptions]</AdditionalOptions>
   </PropertyGroup>
+  <ItemDefinitionGroup Condition=""'$(Configuration)|$(Platform)'=='[conf.Name]|[platformName]'"">
+    <NMakeCompile>
+      <NMakeCompileFileCommandLine>[conf.CustomBuildSettings.CompileFileCommand]</NMakeCompileFileCommandLine>
+    </NMakeCompile>
+  </ItemDefinitionGroup>
+";
+
+        private const string _projectConfigurationsNasmTemplate =
+    @"    <NASM>
+      <PreprocessorDefinitions>[EscapeXML:options.PreprocessorDefinitions];%(PreprocessorDefinitions);$(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>[options.AdditionalAssemblyIncludeDirectories]</IncludePaths>
+      <Path>[ExePath]</Path>
+      <PreIncludeFiles>[PreIncludedFiles]</PreIncludeFiles>
+    </NASM>
 ";
     }
 }

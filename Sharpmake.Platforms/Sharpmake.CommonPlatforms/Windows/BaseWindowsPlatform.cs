@@ -1,16 +1,5 @@
-﻿// Copyright (c) 2017-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -29,6 +18,7 @@ namespace Sharpmake
             public IDictionary<IFastBuildCompilerKey, CompilerFamily> CompilerFamily { get; set; } = new Dictionary<IFastBuildCompilerKey, CompilerFamily>();
             public IDictionary<DevEnv, string> LinkerPath { get; set; } = new Dictionary<DevEnv, string>();
             public IDictionary<DevEnv, string> LinkerExe { get; set; } = new Dictionary<DevEnv, string>();
+            public IDictionary<DevEnv, bool> LinkerInvokedViaCompiler { get; set; } = new Dictionary<DevEnv, bool>();
             public IDictionary<DevEnv, string> LibrarianExe { get; set; } = new Dictionary<DevEnv, string>();
             public IDictionary<DevEnv, string> ResCompiler { get; set; } = new Dictionary<DevEnv, string>();
             public IDictionary<DevEnv, string> ResxCompiler { get; set; } = new Dictionary<DevEnv, string>();
@@ -114,10 +104,24 @@ namespace Sharpmake
                 if (systemIncludes.Count > 0)
                 {
                     systemIncludes.Sort();
-                    if (context.Options["IncludePath"] == FileGeneratorUtilities.RemoveLineTag)
-                        context.Options["IncludePath"] = "$(VC_IncludePath);$(WindowsSDK_IncludePath);" + systemIncludes.JoinStrings(";");
+                    string systemIncludesString = Util.PathGetRelative(context.ProjectDirectory, systemIncludes).JoinStrings(";");
+
+                    // this option is mandatory when using /external:I with msvc, so if the user has selected it
+                    // we consider that the vcxproj supports ExternalIncludePath
+                    if (Options.HasOption<Options.Vc.General.ExternalWarningLevel>(conf))
+                    {
+                        if (context.Options["ExternalIncludePath"] == FileGeneratorUtilities.RemoveLineTag)
+                            context.Options["ExternalIncludePath"] = systemIncludesString;
+                        else
+                            context.Options["ExternalIncludePath"] += ";" + systemIncludesString;
+                    }
                     else
-                        context.Options["IncludePath"] += ";" + systemIncludes.JoinStrings(";");
+                    {
+                        if (context.Options["IncludePath"] == FileGeneratorUtilities.RemoveLineTag)
+                            context.Options["IncludePath"] = "$(VC_IncludePath);$(WindowsSDK_IncludePath);" + systemIncludesString;
+                        else
+                            context.Options["IncludePath"] += ";" + systemIncludesString;
+                    }
                 }
             }
             #endregion

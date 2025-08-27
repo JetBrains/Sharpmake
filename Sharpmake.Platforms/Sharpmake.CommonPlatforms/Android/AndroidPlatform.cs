@@ -1,16 +1,5 @@
-﻿// Copyright (c) 2018-2021 Ubisoft Entertainment
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -33,10 +22,10 @@ namespace Sharpmake
         {
             #region IPlatformDescriptor implementation.
             public override string SimplePlatformString => "Android";
-            public override string GetPlatformString(ITarget target)
+
+            public override string GetToolchainPlatformString(ITarget target)
             {
-                if (target == null)
-                    return SimplePlatformString;
+                ArgumentNullException.ThrowIfNull(target);
 
                 var buildTarget = target.GetFragment<AndroidBuildTargets>();
                 switch (buildTarget)
@@ -50,13 +39,14 @@ namespace Sharpmake
                     case AndroidBuildTargets.x86_64:
                         return "x64";
                     default:
-                        throw new System.Exception(string.Format("Unsupported Android architecture: {0}", buildTarget));
+                        throw new Exception(string.Format("Unsupported Android architecture: {0}", buildTarget));
                 }
             }
 
             public override bool IsMicrosoftPlatform => false;
             public override bool IsPcPlatform => false;
             public override bool IsUsingClang => true;
+            public override bool IsLinkerInvokedViaCompiler { get; set; } = true;
             public override bool HasDotNetSupport => false;
             public override bool HasSharedLibrarySupport => true;
             public override bool HasPrecompiledHeaderSupport => true;
@@ -114,7 +104,8 @@ namespace Sharpmake
                 generator.Write(_projectStartPlatformConditional);
 
                 string applicationType = "Android";
-                string applicationTypeRevision = Options.GetOptionValue("applicationTypeRevision", context.ProjectConfigurationOptions.Values);
+                var androidConfOptions = context.ProjectConfigurationOptions.Where(d => d.Key.Platform == SharpmakePlatform).Select(d => d.Value);
+                string applicationTypeRevision = Options.GetOptionValue("applicationTypeRevision", androidConfOptions);
 
                 string msBuildPathOverrides = string.Empty;
 
@@ -126,11 +117,12 @@ namespace Sharpmake
                     {
                         case DevEnv.vs2017:
                         case DevEnv.vs2019:
+                        case DevEnv.vs2022:
                             {
                                 // _PlatformFolder override is not enough for android, we need to know the AdditionalVCTargetsPath
                                 // Note that AdditionalVCTargetsPath is not officially supported by vs2017, but we use the variable anyway for convenience and consistency
                                 if (!string.IsNullOrEmpty(MSBuildGlobalSettings.GetCppPlatformFolder(devEnv, SharpmakePlatform)))
-                                    throw new Error("SetCppPlatformFolder is not supported by AndroidPlatform correctly: use of MSBuildGlobalSettings.SetCppPlatformFolder should be replaced by use of MSBuildGlobalSettings.SetAdditionalVCTargetsPath.");
+                                    throw new Error($"SetCppPlatformFolder is not supported by {devEnv}: use of MSBuildGlobalSettings.SetCppPlatformFolder should be replaced by use of MSBuildGlobalSettings.SetAdditionalVCTargetsPath.");
 
                                 string additionalVCTargetsPath = MSBuildGlobalSettings.GetAdditionalVCTargetsPath(devEnv, SharpmakePlatform);
                                 if (!string.IsNullOrEmpty(additionalVCTargetsPath))
@@ -159,10 +151,10 @@ namespace Sharpmake
 
                 using (generator.Declare("applicationType", applicationType))
                 using (generator.Declare("applicationTypeRevision", applicationTypeRevision))
-                using (generator.Declare("androidHome", Options.GetOptionValue("androidHome", context.ProjectConfigurationOptions.Values)))
-                using (generator.Declare("antHome", Options.GetOptionValue("antHome", context.ProjectConfigurationOptions.Values)))
-                using (generator.Declare("javaHome", Options.GetOptionValue("javaHome", context.ProjectConfigurationOptions.Values)))
-                using (generator.Declare("ndkRoot", Options.GetOptionValue("ndkRoot", context.ProjectConfigurationOptions.Values)))
+                using (generator.Declare("androidHome", Options.GetOptionValue("androidHome", androidConfOptions)))
+                using (generator.Declare("antHome", Options.GetOptionValue("antHome", androidConfOptions)))
+                using (generator.Declare("javaHome", Options.GetOptionValue("javaHome", androidConfOptions)))
+                using (generator.Declare("ndkRoot", Options.GetOptionValue("ndkRoot", androidConfOptions)))
                 {
                     generator.Write(_projectDescriptionPlatformSpecific);
                 }
@@ -183,7 +175,7 @@ namespace Sharpmake
                 base.GenerateProjectPlatformSdkDirectoryDescription(context, generator);
 
                 var devEnv = context.DevelopmentEnvironmentsRange.MinDevEnv;
-                if (devEnv == DevEnv.vs2019)
+                if (devEnv.IsVisualStudio() && devEnv >= DevEnv.vs2019)
                 {
                     string additionalVCTargetsPath = MSBuildGlobalSettings.GetAdditionalVCTargetsPath(devEnv, SharpmakePlatform);
                     if (!string.IsNullOrEmpty(additionalVCTargetsPath))
@@ -196,7 +188,7 @@ namespace Sharpmake
                 base.GeneratePostDefaultPropsImport(context, generator);
 
                 var devEnv = context.DevelopmentEnvironmentsRange.MinDevEnv;
-                if (devEnv == DevEnv.vs2017 || devEnv == DevEnv.vs2019)
+                if (devEnv.IsVisualStudio() && devEnv >= DevEnv.vs2017)
                 {
                     // in case we've written an additional vc targets path, we need to set a couple of properties to avoid a warning
                     if (!string.IsNullOrEmpty(MSBuildGlobalSettings.GetAdditionalVCTargetsPath(devEnv, SharpmakePlatform)))
@@ -251,6 +243,8 @@ namespace Sharpmake
 
             public override void SelectCompilerOptions(IGenerationContext context)
             {
+                base.SelectCompilerOptions(context);
+
                 var options = context.Options;
                 var cmdLineOptions = context.CommandLineOptions;
                 var conf = context.Configuration;
@@ -471,11 +465,12 @@ namespace Sharpmake
                 context.Options["AdditionalDependencies"] = string.Join(";", additionalDependencies.Select(d => "-l:" + d));
             }
 
-            public override void SetupPlatformLibraryOptions(ref string platformLibExtension, ref string platformOutputLibExtension, ref string platformPrefixExtension)
+            public override void SetupPlatformLibraryOptions(out string platformLibExtension, out string platformOutputLibExtension, out string platformPrefixExtension, out string platformLibPrefix)
             {
                 platformLibExtension = ".a";
                 platformOutputLibExtension = ".a";
                 platformPrefixExtension = string.Empty;
+                platformLibPrefix = "lib";
             }
 
             protected override IEnumerable<string> GetIncludePathsImpl(IGenerationContext context)
@@ -499,7 +494,7 @@ namespace Sharpmake
                 defines.AddRange(context.Options.ExplicitDefines);
                 defines.AddRange(context.Configuration.Defines);
 
-                context.Options["PreprocessorDefinitions"] = defines.JoinStrings(";").Replace(@"""", "");
+                context.Options["PreprocessorDefinitions"] = (context.DevelopmentEnvironment >= DevEnv.vs2019) ? defines.JoinStrings(";") : defines.JoinStrings(";").Replace(@"""", "");
             }
 
             public override bool HasPrecomp(IGenerationContext context)

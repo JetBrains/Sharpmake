@@ -1,16 +1,6 @@
-﻿// Copyright (c) 2017-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
 namespace Sharpmake.Generators.VisualStudio
 {
     public partial class Vcxproj
@@ -42,13 +32,11 @@ namespace Sharpmake.Generators.VisualStudio
                 public static string ProjectDescription =
 @"  <PropertyGroup Label=""Globals"">
     <ProjectGuid>{[guid]}</ProjectGuid>
-    <TargetFrameworkVersion>[targetFramework]</TargetFrameworkVersion>
+    <TargetFrameworkVersion>[targetFrameworkVersion]</TargetFrameworkVersion>
+    <TargetFramework>[targetFramework]</TargetFramework>
     <Keyword>[projectKeyword]</Keyword>
     <DefaultLanguage>en-US</DefaultLanguage>
     <RootNamespace>[projectName]</RootNamespace>
-    <SccProjectName>[sccProjectName]</SccProjectName>
-    <SccLocalPath>[sccLocalPath]</SccLocalPath>
-    <SccProvider>[sccProvider]</SccProvider>
     <ProjectName>[projectName]</ProjectName>
 ";
 
@@ -118,6 +106,11 @@ namespace Sharpmake.Generators.VisualStudio
 @"    <Import Project=""[vcTargetsPath]\BuildCustomizations\masm.props"" />
 ";
 
+                public static string ProjectImportedNasmProps =
+@"    <Import Project=""[importedNasmPropsFile]"" />
+";
+
+
                 public static string ProjectConfigurationImportedProps =
 @"    <Import Project=""[importedPropsFile]"" Condition=""'$(Configuration)|$(Platform)'=='[conf.Name]|[platformName]'"" />
 ";
@@ -158,12 +151,35 @@ namespace Sharpmake.Generators.VisualStudio
 @"    <Import Project=""[vcTargetsPath]\BuildCustomizations\masm.targets"" />
 ";
 
+                public static string ProjectNasmTargetsItem =
+@"    <Import Project=""[importedNasmTargetsFile]"" />
+";
+
                 public static string ProjectConfigurationImportedTargets =
 @"    <Import Project=""[importedTargetsFile]"" Condition=""'$(Configuration)|$(Platform)'=='[conf.Name]|[platformName]'"" />
 ";
 
+                // Support both regular and native package types, whichever happens to exist
+                // possible file extension: .targets and .props
+                public static string ProjectNugetReferenceImport =
+@"    <Import Project=""$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].[fileExtension]"" Condition=""Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].[fileExtension]')"" />
+    <Import Project=""$(SolutionDir)\packages\[packageName].[packageVersion]\build\[packageName].[fileExtension]"" Condition=""!Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].[fileExtension]') and Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\[packageName].[fileExtension]')"" />
+";
+
+                public static string ProjectNugetReferenceError =
+@"    <Error Condition=""!Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\[packageName].[fileExtension]') and !Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].[fileExtension]')"" Text=""$([[System.String]]::Format('$(ErrorText)', '$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].[fileExtension]'))"" />
+";
+
                 public static string ProjectTargetsEnd =
 @"  </ImportGroup>
+";
+
+                public static string ProjectCustomTargetsBegin =
+@"  <Target Name=""[targetName]"" BeforeTargets=""[beforeTargets]"">
+";
+
+                public static string ProjectCustomTargetsEnd =
+@"  </Target>
 ";
 
                 public static string ProjectConfigurationsResourceCompile =
@@ -237,31 +253,31 @@ namespace Sharpmake.Generators.VisualStudio
 ";
 
                 public static string ProjectFilesHeader =
-                @"    <ClInclude Include=""[file.FileNameProjectRelative]"" />
+                @"    <ClInclude Include=""[file.FilePath]"" />
 ";
 
                 public static string ProjectFilesNatvis =
-                @"    <Natvis Include=""[file.FileNameProjectRelative]"" />
+                @"    <Natvis Include=""[file.FilePath]"" />
 ";
 
                 public static string ProjectFilesSourceBegin =
-                @"    <ClCompile Include=""[file.FileNameProjectRelative]""";
+                @"    <ClCompile Include=""[file.FilePath]""";
 
                 public static string ProjectFilesResourceBegin =
-                @"    <ResourceCompile Include=""[file.FileNameProjectRelative]""";
+                @"    <ResourceCompile Include=""[file.FilePath]""";
 
                 public static string ProjectFilesPRIResources =
-                @"    <PRIResource Include=""[file.FileNameProjectRelative]"">
+                @"    <PRIResource Include=""[file.FilePath]"">
       <FileType>Document</FileType>
     </PRIResource>
 ";
 
                 public static string ProjectFilesNone =
-                @"    <None Include=""[file.FileNameProjectRelative]"" />
+                @"    <None Include=""[file.FilePath]"" />
 ";
 
                 public static string ProjectFilesCustomSourceBegin =
-                @"    <[type] Include=""[file.FileNameProjectRelative]""";
+                @"    <[type] Include=""[file.FilePath]""";
 
 
                 public static string ProjectFilesResourceEnd =
@@ -291,6 +307,10 @@ namespace Sharpmake.Generators.VisualStudio
 
                 public static string ProjectFilesCustomBuildLinkObject =
 @"      <LinkObjects Condition=""'$(Configuration)|$(Platform)'=='[conf.Name]|[platformName]'"">[linkobjects]</LinkObjects>
+";
+
+                public static string ProjectFilesCustomBuildOutputItemType =
+@"      <OutputItemType>[outputItemType]</OutputItemType>
 ";
 
                 public static string ProjectFilesCustomBuildEnd =
@@ -405,7 +425,7 @@ namespace Sharpmake.Generators.VisualStudio
 ";
 
                 public static string ReferenceByPath =
-@"    <Reference Include=""[include]"">
+@"    <Reference Include=""[include]"" Condition=""'$(Configuration)|$(Platform)'=='[conf.Name]|[platformName]'"">
       <HintPath>[hintPath]</HintPath>
       <Private>[private]</Private>
     </Reference>
@@ -445,11 +465,11 @@ namespace Sharpmake.Generators.VisualStudio
 @"</Project>";
 
                     public static string FileNoFilter =
-@"    <[type] Include=""[file.FileNameProjectRelative]"" />
+@"    <[type] Include=""[file.FilePath]"" />
 ";
 
                     public static string FileWithFilter =
-@"    <[type] Include=""[file.FileNameProjectRelative]"">
+@"    <[type] Include=""[file.FilePath]"">
       <Filter>[file.FilterPath]</Filter>
     </[type]>
 ";

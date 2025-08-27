@@ -1,21 +1,12 @@
-﻿// Copyright (c) 2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-// http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Sharpmake;
+
+[module: Sharpmake.Reference("Sharpmake.CommonPlatforms.dll")]
 
 namespace HelloAndroid
 {
@@ -44,6 +35,7 @@ namespace HelloAndroid
         public Blob Blob;
         public BuildSystem BuildSystem;
         public AndroidBuildTargets AndroidBuildTargets = AndroidBuildTargets.arm64_v8a | AndroidBuildTargets.x86_64;
+        public Android.AndroidBuildType AndroidBuildType = Android.AndroidBuildType.Gradle;
 
         public CommonTarget() { }
 
@@ -52,7 +44,8 @@ namespace HelloAndroid
             DevEnv devEnv,
             Optimization optimization,
             Blob blob,
-            BuildSystem buildSystem
+            BuildSystem buildSystem,
+            Android.AndroidBuildType androidBuildType
         )
         {
             Platform = platform;
@@ -60,6 +53,7 @@ namespace HelloAndroid
             Optimization = optimization;
             Blob = blob;
             BuildSystem = buildSystem;
+            AndroidBuildType = androidBuildType;
         }
 
         public override string Name
@@ -78,7 +72,9 @@ namespace HelloAndroid
                     nameParts.Add(BuildSystem.ToString());
                 }
 
-                return string.Join(" ", nameParts);
+                //using underscore to join different name parts because gradle is not able to parse
+                //the names properly if we use space to join them
+                return string.Join("_", nameParts);
             }
         }
 
@@ -141,7 +137,8 @@ namespace HelloAndroid
                 DevEnv.vs2019,
                 Optimization.Debug | Optimization.Release,
                 Blob.NoBlob,
-                BuildSystem.Default
+                BuildSystem.Default,
+                Android.AndroidBuildType.Gradle
             );
 
             // make a fastbuild version of the target

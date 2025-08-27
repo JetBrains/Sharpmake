@@ -1,16 +1,5 @@
-﻿// Copyright (c) 2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-// http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
 
 using System.IO;
 using Sharpmake;
@@ -44,9 +33,7 @@ namespace HelloAndroid
         public override void ConfigureAndroid(Configuration conf, CommonTarget target)
         {
             base.ConfigureAndroid(conf, target);
-
             conf.Output = Configuration.OutputType.Dll;
-
             // The short name(libxxx.so, xxx is the short name) of App executable .so has to match the name of the project
             // because we use one AndroidManifest.xml for all configuration in the sample.
             conf.TargetFileName = Name.ToLowerInvariant();
@@ -64,11 +51,13 @@ namespace HelloAndroid
 
         public string ResourceRootPath = Path.Combine(ProjectRootPath, "resources");
 
-        public static readonly string AndroidPackagingPath = Path.Combine(Globals.TmpDirectory, @"projects\exepackaging");
+        public string GradleAppRootPath = Path.Combine(ProjectRootPath, @"gradle\app");
+
+        public static readonly string AndroidPackageProjectsPath = Path.Combine(Globals.TmpDirectory, @"projects");
 
         public ExePackaging() : base(typeof(CommonTarget))
         {
-            DeployProject = true;
+            DeployProjectType = DeployType.OnlyIfBuild;
 
             Name = "exepackaging";
 
@@ -87,12 +76,26 @@ namespace HelloAndroid
             SourceFilesExclude.Add("AndroidManifest.xml", "build.xml");
 
             AddTargets(CommonTarget.GetAndroidTargets());
+
+            //the plugin and gradle version are good and stable version to be used with Android libraries,
+            //we don't want to use the default version on VS(ver. 0.4.0 and 2.8 respectively) since it is quite old
+            GradlePlugin = "gradle:7.0.1";
+            GradleVersion = "7.0.2";
+
+            // Path to the Gradle template files
+            GradleTemplateFiles.Add(@"app\src\main\AndroidManifest.xml.template");
+            GradleTemplateFiles.Add(@"app\build.gradle.template");
+            GradleTemplateFiles.Add(@"build.gradle.template");
+            GradleTemplateFiles.Add(@"settings.gradle.template");
+            GradleTemplateFiles.Add(@"gradle\wrapper\gradle-wrapper.properties.template");
+
+            ResourceFiles.Add(@"app\src\main\res\values\strings.xml");
         }
 
         [Configure(Platform.android)]
         public void ConfigureAndroid(Project.Configuration conf, CommonTarget target)
         {
-            conf.Name = Name + "_[target.Optimization]_[target.AndroidBuildTargets]";
+            conf.Name = target.Name + "_[target.AndroidBuildTargets]";
             conf.ProjectPath = Path.Combine(ProjectRootPath, @"codebase\temp\projects\[project.Name]");
             conf.ProjectFileName = "[project.Name]_[target.DevEnv]_[target.Platform]";
 
@@ -112,10 +115,29 @@ namespace HelloAndroid
         public override void PostResolve()
         {
             base.PostResolve();
-            DirectoryCopyResourceFiles(ResourceRootPath, AndroidPackagingPath);
+
+            DirectoryCopyResourceFiles(GradleAppRootPath, Path.Combine(AndroidPackageProjectsPath, Name + "/app"));
+
+            string srcAppGradleFile = Path.Combine(AndroidPackageProjectsPath, Name + "/app/build.app.gradle.template");
+            string destAppGradleFile = Path.Combine(AndroidPackageProjectsPath, Name + "/app/build.gradle.template");
+
+            if (File.Exists(destAppGradleFile))
+            {
+                File.Delete(destAppGradleFile);
+            }
+
+            // rename gradle template file in app folder
+            File.Move(srcAppGradleFile, destAppGradleFile);
+
+            string MainFolderPath = Path.Combine(AndroidPackageProjectsPath, Name + "/app/src/main");
+            if (!Directory.Exists(MainFolderPath))
+            {
+                Directory.CreateDirectory(MainFolderPath);
+            }
+            DirectoryCopyResourceFiles(ResourceRootPath, MainFolderPath);
         }
 
-        private void DirectoryCopyResourceFiles(string sourceDirName, string destDirName)
+        public static void DirectoryCopyResourceFiles(string sourceDirName, string destDirName)
         {
             // Get the subdirectories for the specified directory.
             DirectoryInfo dir = new DirectoryInfo(sourceDirName);

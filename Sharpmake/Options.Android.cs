@@ -1,16 +1,7 @@
-﻿// Copyright (c) 2018, 2020 Ubisoft Entertainment
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
+using System;
 
 namespace Sharpmake
 {
@@ -81,6 +72,27 @@ namespace Sharpmake
                     public static readonly string Default = "3.0";
                     public ApplicationTypeRevision(string revision)
                         : base(revision) { }
+                }
+
+                /// <summary>
+                /// This is applicable for AGDE only
+                /// The full path to the directory containing the top-level build.gradle file.
+                /// </summary>
+                [Obsolete("Use the option in Agde instead.")]
+                public class AndroidGradleBuildDir : PathOption
+                {
+                    public AndroidGradleBuildDir(string androidGradleBuildDir)
+                       : base(androidGradleBuildDir) { }
+                }
+
+                /// <summary>
+                /// Output Apk name for AGDE project which can be set per configuration.
+                /// </summary>
+                [Obsolete("Use the option in Agde instead.")]
+                public class AndroidApkName : StringOption
+                {
+                    public AndroidApkName(string androidApkName)
+                       : base(androidApkName) { }
                 }
 
                 /// <summary>
@@ -157,6 +169,30 @@ namespace Sharpmake
                     LibCpp_Shared
                 }
 
+                // This is applicable for AGDE only
+                // Link time optimization, may also be required for some sanitizers.
+                [Obsolete("Use the option in Agde instead.")]
+                public enum LinkTimeOptimization
+                {
+                    [Default]
+                    None,
+                    LinkTimeOptimization,
+                    ThinLinkTimeOptimization
+                }
+
+                // This is applicable for AGDE only
+                // Set the flag '-fuse-ld=' which specifies which linker to use.
+                [Obsolete("Use the option in Agde instead.")]
+                public enum ClangLinkType
+                {
+                    None,
+                    DeferToNdk,
+                    gold,
+                    [Default]
+                    lld,
+                    bfd
+                }
+
                 public enum WarningLevel
                 {
                     TurnOffAllWarnings,
@@ -167,6 +203,19 @@ namespace Sharpmake
 
             public static class Compiler
             {
+                public enum CLanguageStandard
+                {
+                    [Default]
+                    Default,
+                    C89,
+                    C99,
+                    C11,
+                    C17,
+                    GNU_C99,
+                    GNU_C11,
+                    GNU_C17
+                }
+
                 public enum CppLanguageStandard
                 {
                     [Default]

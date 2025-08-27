@@ -1,16 +1,6 @@
-﻿// Copyright (c) 2017-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -81,10 +71,11 @@ namespace Sharpmake.Generators.VisualStudio
 
     public partial class Sln : ISolutionGenerator
     {
+        public const string SolutionExtension = ".sln";
+
         private readonly List<SolutionFolder> _rootSolutionFolders = new List<SolutionFolder>();
         private readonly List<SolutionFolder> _solutionFolders = new List<SolutionFolder>();
         private Builder _builder;
-        private const string SolutionExtension = ".sln";
 
         private static Regex s_projectGuidRegex = new Regex(
             "(\\s*ProjectGUID=\"\\s*{(?<GUID>([0-9A-Fa-f\\-]+))}\\s*\")| " +
@@ -302,9 +293,11 @@ namespace Sharpmake.Generators.VisualStudio
                 case DevEnv.vs2019:
                     fileGenerator.Write(Template.Solution.HeaderBeginVs2019);
                     break;
-                default:
-                    Console.WriteLine("Unsupported DevEnv for solution " + solutionConfigurations[0].Target.GetFragment<DevEnv>());
+                case DevEnv.vs2022:
+                    fileGenerator.Write(Template.Solution.HeaderBeginVs2022);
                     break;
+                default:
+                    throw new Error($"Unsupported DevEnv {devEnv} for solution {solution.Name}");
             }
 
             SolutionFolder masterBffFolder = null;
@@ -385,8 +378,9 @@ namespace Sharpmake.Generators.VisualStudio
                     {
                         fileGenerator.Write(Template.Solution.ProjectBegin);
                         Strings buildDepsGuids = new Strings(resolvedProject.Configurations.SelectMany(
-                            c => c.GenericBuildDependencies.Select(
-                                p => p.ProjectGuid ?? ReadGuidFromProjectFile(p.ProjectFullFileNameWithExtension)
+                            c => c.GenericBuildDependencies
+                                .Where(dep => !dep.IsFastBuild)
+                                .Select(p => p.ProjectGuid ?? ReadGuidFromProjectFile(p.ProjectFullFileNameWithExtension)
                             )
                         ));
 
@@ -418,8 +412,10 @@ namespace Sharpmake.Generators.VisualStudio
             // TODO: What happens if we define an existing folder?
             foreach (var items in solution.ExtraItems)
             {
-                using (fileGenerator.Declare("folderName", items.Key))
-                using (fileGenerator.Declare("folderGuid", Util.BuildGuid(items.Key)))
+                var folder = GetSolutionFolder(items.Key);
+
+                using (fileGenerator.Declare("folderName", folder.Name))
+                using (fileGenerator.Declare("folderGuid", folder.Guid))
                 using (fileGenerator.Declare("solution", solution))
                 {
                     fileGenerator.Write(Template.Solution.ProjectFolder);
@@ -437,58 +433,6 @@ namespace Sharpmake.Generators.VisualStudio
             }
 
             fileGenerator.Write(Template.Solution.GlobalBegin);
-
-            // Write source code control information
-            if (solution.PerforceRootPath != null)
-            {
-                List<Solution.ResolvedProject> sccProjects = new List<Solution.ResolvedProject>();
-
-                foreach (Solution.ResolvedProject resolvedProject in solutionProjects)
-                {
-                    if (resolvedProject.Project.PerforceRootPath != null)
-                        sccProjects.Add(resolvedProject);
-                    else
-                        _builder.LogWriteLine(@"warning: cannot bind solution {0} to perforce, PerforceRootPath for project '{1}' is not set.", solutionFileInfo.Name, resolvedProject.Project.ClassName);
-                }
-
-                if (sccProjects.Count == solutionProjects.Count)
-                {
-                    using (fileGenerator.Declare("sccNumberOfProjects", sccProjects.Count))
-                    {
-                        fileGenerator.Write(Template.Solution.GlobalSectionSolutionSourceCodeControlBegin);
-                    }
-
-                    for (int i = 0; i < sccProjects.Count; ++i)
-                    {
-                        Solution.ResolvedProject resolvedProject = sccProjects[i];
-
-                        FileInfo projectFileInfo = new FileInfo(resolvedProject.ProjectFile);
-
-                        //SccProjectUniqueName7 = ..\\..\\extern\\techgroup\\framework\\gear\\private\\compilers\\win32\\vc9\\gear_win32_compile.vcproj
-                        string sccProjectUniqueName = Util.PathGetRelative(solutionFileInfo.Directory.FullName, projectFileInfo.FullName).Replace("\\", "\\\\");
-
-                        //SccProjectTopLevelParentUniqueName7 = guildlib.sln
-                        string sccProjectTopLevelParentUniqueName = solutionFileInfo.Name;
-
-                        // sln to perforce file
-                        //SccLocalPath7 = ..\\..\\extern\\techgroup\\framework\\gear
-                        string sccLocalPath = Util.PathGetRelative(solutionPath, resolvedProject.Project.PerforceRootPath).Replace("\\", "\\\\");
-
-                        //SccProjectFilePathRelativizedFromConnection7 = private\\compilers\\win32\\vc9\\
-                        string sccProjectFilePathRelativizedFromConnection = Util.PathGetRelative(resolvedProject.Project.PerforceRootPath, projectFileInfo.DirectoryName).Trim('.', '\\').Replace("\\", "\\\\");
-
-                        using (fileGenerator.Declare("i", i))
-                        using (fileGenerator.Declare("sccProjectUniqueName", sccProjectUniqueName))
-                        using (fileGenerator.Declare("sccProjectTopLevelParentUniqueName", sccProjectTopLevelParentUniqueName))
-                        using (fileGenerator.Declare("sccLocalPath", sccLocalPath))
-                        using (fileGenerator.Declare("sccProjectFilePathRelativizedFromConnection", sccProjectFilePathRelativizedFromConnection))
-                        {
-                            fileGenerator.Write(Template.Solution.GlobalSectionSolutionSourceCodeControlProject);
-                        }
-                    }
-                    fileGenerator.Write(Template.Solution.GlobalSectionSolutionSourceCodeControlEnd);
-                }
-            }
 
             // write solution configurations
             string visualStudioExe = GetVisualStudioIdePath(devEnv) + Util.WindowsSeparator + "devenv.com";
@@ -625,7 +569,7 @@ namespace Sharpmake.Generators.VisualStudio
                         category = solutionConfiguration.PlatformName;
                     }
 
-                    if (containsMultiDotNetFramework)
+                    if (containsMultiDotNetFramework && includedProject?.Project is CSharpProject)
                     {
                         if (multiDotNetFrameworkConfigurationNames.Contains(configurationName))
                             continue;
@@ -636,11 +580,12 @@ namespace Sharpmake.Generators.VisualStudio
                     using (fileGenerator.Declare("solutionConf", solutionConfiguration))
                     using (fileGenerator.Declare("projectGuid", solutionProject.UserData["Guid"]))
                     using (fileGenerator.Declare("projectConf", projectConf))
-                    using (fileGenerator.Declare("projectPlatform", Util.GetPlatformString(projectPlatform, solutionProject.Project, solutionConfiguration.Target, true)))
+                    using (fileGenerator.Declare("projectPlatform", Util.GetToolchainPlatformString(projectPlatform, solutionProject.Project, solutionConfiguration.Target, true)))
                     using (fileGenerator.Declare("category", category))
                     using (fileGenerator.Declare("configurationName", configurationName))
                     {
                         bool build = false;
+                        bool forceDeploy = false;
                         if (solution is PythonSolution)
                         {
                             // nothing is built in python solutions
@@ -648,6 +593,7 @@ namespace Sharpmake.Generators.VisualStudio
                         else if (perfectMatch)
                         {
                             build = includedProject.ToBuild == Solution.Configuration.IncludedProjectInfo.Build.Yes;
+                            forceDeploy = includedProject.Project.DeployProjectType == Project.DeployType.AlwaysDeploy || includedProject.Configuration.DeployProjectType == Project.DeployType.AlwaysDeploy;
 
                             // for fastbuild, only build the projects that cannot be built through dependency chain
                             if (!projectConf.IsFastBuild)
@@ -660,13 +606,16 @@ namespace Sharpmake.Generators.VisualStudio
                         }
 
                         fileGenerator.Write(Template.Solution.GlobalSectionProjectConfigurationActive);
+                        bool buildDeploy = false;
                         if (build)
                         {
+                            buildDeploy = includedProject.Project.DeployProjectType == Project.DeployType.OnlyIfBuild || includedProject.Configuration.DeployProjectType == Project.DeployType.OnlyIfBuild;
                             fileGenerator.Write(Template.Solution.GlobalSectionProjectConfigurationBuild);
+                        }
 
-                            bool deployProject = includedProject.Project.DeployProject || includedProject.Configuration.DeployProject;
-                            if (deployProject)
-                                fileGenerator.Write(Template.Solution.GlobalSectionProjectConfigurationDeploy);
+                        if (forceDeploy || buildDeploy)
+                        {
+                            fileGenerator.Write(Template.Solution.GlobalSectionProjectConfigurationDeploy);
                         }
                     }
                 }
@@ -723,7 +672,7 @@ namespace Sharpmake.Generators.VisualStudio
             fileGenerator.Write(Template.Solution.GlobalEnd);
 
             // Write the solution file
-            updated = _builder.Context.WriteGeneratedFile(solution.GetType(), solutionFileInfo, fileGenerator.ToMemoryStream());
+            updated = _builder.Context.WriteGeneratedFile(solution.GetType(), solutionFileInfo, fileGenerator);
 
             solution.PostGenerationCallback?.Invoke(solutionPath, solutionFile, SolutionExtension);
 
@@ -796,17 +745,26 @@ namespace Sharpmake.Generators.VisualStudio
         private List<Solution.ResolvedProject> ResolveSolutionProjects(Solution solution, IReadOnlyList<Solution.Configuration> solutionConfigurations)
         {
             bool projectsWereFiltered;
-            List<Solution.ResolvedProject> solutionProjects = solution.GetResolvedProjects(solutionConfigurations, out projectsWereFiltered).ToList();
+            var resolvedProjects = solution.GetResolvedProjects(solutionConfigurations, out projectsWereFiltered);
+
+            var filtered = resolvedProjects.Where(sp =>
+            {
+                var onlyNeeded = sp.SolutionConfigurationsBuild.All(
+                    scb => scb.Key.IncludeOnlyNeededFastBuildProjects && (scb.Value == Solution.Configuration.IncludedProjectInfo.Build.No || scb.Value == Solution.Configuration.IncludedProjectInfo.Build.YesThroughDependency)
+                );
+                if (onlyNeeded)
+                {
+                    if (!sp.Project.IsFastBuildAll && (sp.Configurations.All(pc => pc.IsFastBuild && !pc.DoNotGenerateFastBuild && !(pc.AddFastBuildProjectToSolutionCallback?.Invoke() ?? false))))
+                        return false;
+                }
+                return true;
+            });
 
             // Ensure all projects are always in the same order to avoid random shuffles
-            solutionProjects.Sort((a, b) =>
-            {
-                int nameComparison = string.Compare(a.ProjectName, b.ProjectName, StringComparison.InvariantCultureIgnoreCase);
-                if (nameComparison != 0)
-                    return nameComparison;
-
-                return string.Compare(a.ProjectFile, b.ProjectFile, StringComparison.InvariantCultureIgnoreCase);
-            });
+            var solutionProjects = filtered
+                .OrderBy(p => p.ProjectName, StringComparer.InvariantCultureIgnoreCase)
+                .ThenBy(p => p.ProjectFile, StringComparer.InvariantCultureIgnoreCase)
+                .ToList();
 
             // Validate and handle startup project.
             IEnumerable<Solution.Configuration> confWithStartupProjects = solutionConfigurations.Where(conf => conf.StartupProject != null);

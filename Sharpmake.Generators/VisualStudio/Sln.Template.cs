@@ -1,16 +1,6 @@
-﻿// Copyright (c) 2017-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
 using System;
 
 namespace Sharpmake.Generators.VisualStudio
@@ -53,6 +43,11 @@ namespace Sharpmake.Generators.VisualStudio
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29424.173
 MinimumVisualStudioVersion = 10.0.40219.1
+";
+
+                public static string HeaderBeginVs2022 =
+@"Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
 ";
 
                 public static string ProjectBegin =
@@ -105,23 +100,14 @@ MinimumVisualStudioVersion = 10.0.40219.1
 	EndGlobalSection
 ";
 
-                public static string GlobalSectionSolutionSourceCodeControlBegin =
-@"	GlobalSection(SourceCodeControl) = preSolution
-		SccNumberOfProjects = [sccNumberOfProjects]
-";
+                [Obsolete("This property is deprecated, scc info shouldn't be stored in the solution files anymore", error: true)]
+                public static string GlobalSectionSolutionSourceCodeControlBegin;
 
-                public static string GlobalSectionSolutionSourceCodeControlProject =
-@"		SccProjectUniqueName[i] = [sccProjectUniqueName]
-		SccProjectTopLevelParentUniqueName[i] = [sccProjectTopLevelParentUniqueName]
-		SccProjectName[i] = Perforce\u0020Project
-		SccLocalPath[i] = [sccLocalPath]
-		SccProvider[i] = MSSCCI:Perforce\u0020SCM
-		SccProjectFilePathRelativizedFromConnection[i] = [sccProjectFilePathRelativizedFromConnection]\\
-";
+                [Obsolete("This property is deprecated, scc info shouldn't be stored in the solution files anymore", error: true)]
+                public static string GlobalSectionSolutionSourceCodeControlProject;
 
-                public static string GlobalSectionSolutionSourceCodeControlEnd =
-@"	EndGlobalSection
-";
+                [Obsolete("This property is deprecated, scc info shouldn't be stored in the solution files anymore", error: true)]
+                public static string GlobalSectionSolutionSourceCodeControlEnd;
 
                 public static string GlobalSectionSolutionConfigurationBegin =
 @"	GlobalSection(SolutionConfigurationPlatforms) = preSolution

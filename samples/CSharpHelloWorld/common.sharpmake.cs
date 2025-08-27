@@ -1,16 +1,5 @@
-// Copyright (c) 2017, 2019-2020 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-// http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
 
 using Sharpmake;
 
@@ -41,7 +30,7 @@ namespace Common
                         OutputType.Dll,
                         Blob.NoBlob,
                         BuildSystem.MSBuild,
-                        DotNetFramework.v4_5),
+                        DotNetFramework.v4_5_2),
             new Target(
                         Platform.anycpu,
                         DevEnv.vs2017,
@@ -69,12 +58,8 @@ namespace Common
             // if set to true, dependencies that the project uses will be copied to the output directory
             DependenciesCopyLocal = DependenciesCopyLocalTypes.Default;
 
-            // Set to null if you don't want to use Perforce
-            PerforceRootPath = null;
-
             // Files put in this directory will be added to the project as resources (linked) build Action
             ResourcesPath = RootPath + @"\Resources\";
-
 
             // Files put in this directory will be added to the project as Content build Action
             ContentPath = RootPath + @"\Content\";

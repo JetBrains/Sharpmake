@@ -1,16 +1,6 @@
-﻿// Copyright (c) 2017-2018, 2020-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -80,7 +70,6 @@ namespace Sharpmake
             {
                 string commandLine = Environment.CommandLine.Remove(0, commandLineArgs[0].Length + 1);
                 commandLine = commandLine.Trim(' ', '\"');
-                commandLine = commandLine.Replace(@"'", @"""");
                 return commandLine;
             }
 
@@ -178,7 +167,7 @@ namespace Sharpmake
         {
             bool isStatic = instance == null;
 
-            Parameter[] parameters = GetParameters(commandLine);
+            Parameter[] parameters = GetParameters(commandLine.Replace(@"'", @""""));
             if (parameters.Length == 0)
                 return;
 
@@ -191,14 +180,10 @@ namespace Sharpmake
             Dictionary<string, List<MethodInfo>> optionsNameMethodMapping = GetMethodsMapping(type, isStatic);
 
             // use to not call more than one for method with parameter overloading...
-            HashSet<string> executedMethods = new HashSet<string>();
+            var executedMethods = new HashSet<string>();
 
-            // tell to use all loaded assembly
-            List<Assembly> assemblies = new List<Assembly>(AppDomain.CurrentDomain.GetAssemblies());
-
-            // in case of scripted c#, associated assembly may not be loaded in the current application domain.
-            if (!assemblies.Contains(type.Assembly))
-                assemblies.Add(type.Assembly);
+            // use associated assembly
+            var assemblies = new List<Assembly> { type.Assembly };
 
             foreach (Parameter parameter in parameters)
             {

@@ -1,16 +1,5 @@
-// Copyright (c) 2020-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-// http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
 
 using System;
 using Sharpmake;
@@ -29,7 +18,7 @@ namespace NetCore
                     OutputType.Dll,
                     Blob.NoBlob,
                     BuildSystem.MSBuild,
-                    DotNetFramework.v4_6_1 | DotNetFramework.netstandard2_0)
+                    DotNetFramework.v4_6_1 | DotNetFramework.v4_7_2 | DotNetFramework.netstandard2_0 | DotNetFramework.net5_0)
             };
 
             public HelloWorldLib()
@@ -61,6 +50,11 @@ namespace NetCore
                 {
                     conf.ReferencesByNuGetPackage.Add("System.Text.Encoding.CodePages", "4.5.0");
                 }
+
+                if (target.GetFragment<DotNetFramework>().IsDotNetCore())
+                {
+                    conf.DotNetOSVersion = DotNetOS.windows;
+                }
             }
         }
 
@@ -75,7 +69,7 @@ namespace NetCore
                     OutputType.Dll,
                     Blob.NoBlob,
                     BuildSystem.MSBuild,
-                    DotNetFramework.v4_6_1 | DotNetFramework.netcore3_1)
+                    DotNetFramework.v4_6_1 | DotNetFramework.v4_7_2 | DotNetFramework.netcore3_1)
             };
 
             public HelloWorldMultiFrameworks()

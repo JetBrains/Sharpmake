@@ -1,16 +1,6 @@
-﻿// Copyright (c) 2017-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
 using System;
 
 namespace Sharpmake
@@ -41,6 +31,8 @@ namespace Sharpmake
                     v141_xp, // Visual Studio 2017 - Windows XP
                     [DevEnvVersion(minimum = DevEnv.vs2019)]
                     v142, // Visual Studio 2019
+                    [DevEnvVersion(minimum = DevEnv.vs2022)]
+                    v143, // Visual Studio 2022
                     [DevEnvVersion(minimum = DevEnv.vs2017)]
                     LLVM, // LLVM from Visual Studio 2017
                     [DevEnvVersion(minimum = DevEnv.vs2019)]
@@ -81,7 +73,24 @@ namespace Sharpmake
                     v10_0_17763_0, // 1809, October 2018 Update
                     v10_0_18362_0, // 1903, May 2019 Update
                     v10_0_19041_0, // 2004, May 2020 Update
+                    v10_0_20348_0, // 2104/21H1
+                    v10_0_22000_0, // Windows 11
+                    v10_0_22621_0, // Windows 11 22H2
+                    v10_0_26100_0, // Windows 11 24H2
                     Latest,        // latest available in host machine
+                }
+
+                /// <summary>
+                /// Translate Includes to Imports
+                /// </summary>
+                /// <remarks>
+                /// Enables the compiler to translate #include directives into import directives for the available header units.  (/translateInclude)
+                /// </remarks>
+                public enum TranslateIncludes
+                {
+                    Enable,
+                    [Default]
+                    Disable
                 }
 
                 /// <summary>
@@ -284,6 +293,82 @@ namespace Sharpmake
                 }
 
                 /// <summary>
+                /// Treat Files Included with Angle Brackets as External
+                /// </summary>
+                /// <remarks>
+                /// Specifies whether to treat files included with angle brackets as external.   (/external:anglebrackets)
+                /// </remarks>
+                public enum TreatAngleIncludeAsExternal
+                {
+                    [DevEnvVersion(minimum = DevEnv.vs2019)]
+                    Enable,
+                    [Default]
+                    Disable
+                }
+
+                /// <summary>
+                /// External Header Warning Level
+                /// </summary>
+                /// <remarks>
+                /// Select how strict you want the compiler to be about code errors in external headers.     (/external:W0 - /external:W4)
+                /// </remarks>
+                public enum ExternalWarningLevel
+                {
+                    /// <summary>
+                    /// Turn Off All Warnings
+                    /// </summary>
+                    /// <remarks>
+                    /// Level 0 disables all warnings.
+                    /// </remarks>
+                    [DevEnvVersion(minimum = DevEnv.vs2019)]
+                    Level0,
+
+                    /// <summary>
+                    /// Level 1 displays severe warnings. Level 1 is the default warning level at the command line.
+                    /// </summary>
+                    [DevEnvVersion(minimum = DevEnv.vs2019)]
+                    Level1,
+
+                    /// <summary>
+                    /// Level 2 displays all level 1 warnings and warnings less severe than level 1.
+                    /// </summary>
+                    [DevEnvVersion(minimum = DevEnv.vs2019)]
+                    Level2,
+
+                    /// <summary>
+                    /// Level 3 displays all level 2 warnings and all other warnings recommended for production purposes.
+                    /// </summary>
+                    [DevEnvVersion(minimum = DevEnv.vs2019)]
+                    Level3,
+
+                    /// <summary>
+                    /// Level 4 displays all level 3 warnings plus informational warnings, which in most cases can be safely ignored.
+                    /// </summary>
+                    [DevEnvVersion(minimum = DevEnv.vs2019)]
+                    Level4,
+
+                    /// <summary>
+                    /// Inherit Project Warning Level
+                    /// </summary>
+                    [Default]
+                    InheritWarningLevel
+                }
+
+                /// <summary>
+                /// Template Diagnostics in External Headers
+                /// </summary>
+                /// <remarks>
+                /// Specifies whether to evaluate warning level across template instantiation chain.   (/external:templates-)
+                /// </remarks>
+                public enum ExternalTemplatesDiagnostics
+                {
+                    [DevEnvVersion(minimum = DevEnv.vs2019)]
+                    Enable,
+                    [Default]
+                    Disable
+                }
+
+                /// <summary>
                 /// Enable Managed Incremental Build
                 /// </summary>
                 /// <remarks>
@@ -335,7 +420,15 @@ namespace Sharpmake
                     SafeMsilClrSupport,  // clr:safe
 
                     [Obsolete("This option is not supported by msvc anymore.", true)]
-                    SafeMsilClrSupportOldSyntax  // clr:oldSyntax
+                    SafeMsilClrSupportOldSyntax,  // clr:oldSyntax
+
+                    /// <summary>
+                    /// Common Language RunTime Support for .NET Core
+                    /// </summary>
+                    /// <remarks>
+                    /// Creates metadata and code for the component using the latest cross-platform .NET framework, also known as .NET Core. The metadata can be consumed by other .NET Core applications. And, the option enables the component to consume types and data in the metadata of other .NET Core components.
+                    /// </remarks>
+                    ClrNetCoreSupport // clr:netcore
                 }
 
                 public enum MfcSupport
@@ -583,6 +676,17 @@ namespace Sharpmake
                 public enum KeepComment
                 {
                     [Default]
+                    Disable,
+                    Enable
+                }
+
+                /// <summary>
+                /// Enables a token-based preprocessor that conforms to C99 and C++11 and later standards.
+                /// </summary>
+                public enum UseStandardConformingPreprocessor
+                {
+                    [Default]
+                    Default,
                     Disable,
                     Enable
                 }
@@ -1005,6 +1109,7 @@ namespace Sharpmake
 
                 public enum OpenMP
                 {
+                    Default,
                     [Default]
                     Disable,
                     Enable
@@ -1119,7 +1224,7 @@ namespace Sharpmake
                 /// C++ Language Standard
                 /// </summary>
                 /// <remarks>
-                /// Determines the C++ language standard the compiler will enforce. It is recommended to use the latest version when possible. (/std:c++14, /std:c++17, /std:c++latest)
+                /// Determines the C++ language standard the compiler will enforce. It is recommended to use the latest version when possible. (/std:c++14, /std:c++17, /std:c++20, /std:c++latest)
                 /// </remarks>
                 public enum CppLanguageStandard
                 {
@@ -1139,6 +1244,12 @@ namespace Sharpmake
                     /// </summary>
                     [DevEnvVersion(minimum = DevEnv.vs2017)]
                     CPP17,
+
+                    /// <summary>
+                    /// ISO C++20 Standard
+                    /// </summary>
+                    [DevEnvVersion(minimum = DevEnv.vs2019)]
+                    CPP20,
 
                     GNU98,
                     GNU11,
@@ -1257,6 +1368,20 @@ namespace Sharpmake
                     [DevEnvVersion(minimum = DevEnv.vs2019)]
                     Enable
                 }
+
+                /// <summary>
+                /// Enable Jumbo/Unity builds for msbuild. Only usable with msbuild.
+                /// </summary>
+                /// <remarks>
+                /// Merges multiple translation units together
+                /// </remarks>
+                public enum JumboBuild
+                {
+                    [Default]
+                    Disable,
+                    [DevEnvVersion(minimum = DevEnv.vs2019)]
+                    Enable
+                }
             }
 
             public static class CodeAnalysis
@@ -1266,6 +1391,27 @@ namespace Sharpmake
                     Enable,
                     [Default]
                     Disable
+                }
+
+                public enum MicrosoftCodeAnalysis
+                {
+                    Enable,
+                    [Default]
+                    Disable
+                }
+
+                public enum ClangTidyCodeAnalysis
+                {
+                    Enable,
+                    [Default]
+                    Disable
+                }
+
+                public class CodeAnalysisExcludePaths : PathOption
+                {
+                    public CodeAnalysisExcludePaths(string value)
+                        : base(value)
+                    { }
                 }
             }
 

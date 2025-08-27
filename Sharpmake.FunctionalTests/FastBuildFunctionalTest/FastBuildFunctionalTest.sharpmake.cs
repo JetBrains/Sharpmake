@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2019-2021 Ubisoft Entertainment
+﻿// Copyright (c) 2019-2022 Ubisoft Entertainment
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,17 @@ using Sharpmake.Generators.FastBuild;
 
 namespace SharpmakeGen.FunctionalTests
 {
+    public static class FunctionalTestArguments
+    {
+        public static bool EnableLinkerMultiStamp = false;
+
+        [CommandLine.Option("enableLinkerMultiStamp", @"Allow more than one post-build stamper for one executable. Default value: false. ex: /enableLinkerMultiStamp(<true|false>)")]
+        public static void CommandLineEnableLinkerMultiStamp(bool value)
+        {
+            EnableLinkerMultiStamp = value;
+        }
+    }
+
     [DebuggerDisplay("\"{Platform}_{DevEnv}\" {Name}")]
     public class Target : Sharpmake.ITarget
     {
@@ -298,6 +309,26 @@ namespace SharpmakeGen.FunctionalTests
     }
 
     [Generate]
+    public class SpanMultipleSrcDirsFBUnityIsolate : SpanMultipleSrcDirs
+    {
+        public SpanMultipleSrcDirsFBUnityIsolate()
+        {
+            AddFragmentMask(Blob.FastBuildUnitys);
+        }
+
+        public override void FastBuildUnitys(Configuration conf, Target target)
+        {
+            base.FastBuildUnitys(conf, target);
+
+            // Isolating writable files works well only for Perforce
+            conf.FastBuildUnityInputIsolateWritableFiles = false;
+
+            // Provides a list of files that should be manually isolated. It can be used for Git difference of names, for example
+            conf.FastBuildUnityInputIsolateListFile = @"[project.RootPath]\codebase\SpanMultipleSrcDirs\temp\isolate_list.txt";
+        }
+    }
+
+    [Generate]
     public class UsePrecompExe : CommonExeProject
     {
         public UsePrecompExe()
@@ -405,6 +436,31 @@ namespace SharpmakeGen.FunctionalTests
     }
 
     [Generate]
+    public class PostBuildCopyDirNoPatternTest : CommonExeProject
+    {
+        public PostBuildCopyDirNoPatternTest()
+        {
+        }
+
+        public override void ConfigureAll(Configuration conf, Target target)
+        {
+            base.ConfigureAll(conf, target);
+
+            // Create a PostBuild step that copies all .cpp & .txt files from the source dir to another folder
+            // Note that this copy step will not depend on compilation output and thus FastBuild is free
+            // execute the copy operation during or before compilation.
+            var copyDirBuildStep = new Configuration.BuildStepCopy(
+                @"[project.SourceRootPath]",
+                @"[conf.TargetPath]\file_copy_destination_no_pattern");
+
+            copyDirBuildStep.IsFileCopy = false;
+            copyDirBuildStep.CopyPattern = string.Empty;
+
+            conf.EventCustomPostBuildExe.Add(copyDirBuildStep);
+        }
+    }
+
+    [Generate]
     public class ExplicitlyOrderedPostBuildTest : CommonExeProject
     {
         public ExplicitlyOrderedPostBuildTest()
@@ -490,6 +546,95 @@ namespace SharpmakeGen.FunctionalTests
         }
     }
 
+    [Generate]
+    public class PostBuildStamper : CommonExeProject
+    {
+        public PostBuildStamper()
+        {
+            SourceRootPath = @"[project.RootPath]\codebase\PostBuildStampTest";
+        }
+    }
+
+    [Generate]
+    public class PostBuildStampTest : CommonExeProject
+    {
+        public PostBuildStampTest()
+        {
+        }
+        public override void ConfigureAll(Configuration conf, Target target)
+        {
+            base.ConfigureAll(conf, target);
+
+            conf.AddPublicDependency<PostBuildStamper>(target);
+
+            if (FunctionalTestArguments.EnableLinkerMultiStamp)
+            {
+                conf.PostBuildStampExes = new List<Configuration.BuildStepExecutable>
+                {
+                    new Configuration.BuildStepExecutable(
+                        @"[conf.TargetPath]\PostBuildStamper.exe",
+                        @"",
+                        @"[conf.TargetPath]\[conf.TargetFileName].exe",
+                        @"_Stamp",
+                        useStdOutAsOutput : true),
+
+                    new Configuration.BuildStepExecutable(
+                        @"[conf.TargetPath]\PostBuildStamper.exe",
+                        @"",
+                        @"[conf.TargetPath]\[conf.TargetFileName].exe",
+                        @"_Message",
+                        useStdOutAsOutput : true)
+                };
+            }
+            else
+            {
+                conf.PostBuildStampExe = new Configuration.BuildStepExecutable(
+                    @"[conf.TargetPath]\PostBuildStamper.exe",
+                    @"",
+                    @"[conf.TargetPath]\[conf.TargetFileName].exe",
+                    @"_Stamp_Message",
+                    useStdOutAsOutput: true);
+            }
+        }
+    }
+
+    [Generate]
+    public class SimpleLib : CommonProject
+    {
+        public SimpleLib()
+        {
+        }
+    }
+
+    [Generate]
+    public class SimpleExeWithLib : CommonExeProject
+    {
+        public SimpleExeWithLib()
+        {
+        }
+        public override void ConfigureAll(Configuration conf, Target target)
+        {
+            base.ConfigureAll(conf, target);
+            conf.AddPublicDependency<SimpleLib>(target);
+        }
+    }
+
+    [Generate]
+    public class AllCppWithDotCExe : CommonExeProject
+    {
+        public AllCppWithDotCExe()
+        {
+        }
+
+        public override void ConfigureAll(Configuration conf, Target target)
+        {
+            base.ConfigureAll(conf, target);
+
+            conf.SourceFilesCompileAsCPPRegex.Add(".*\\.c");
+        }
+    }
+
+
     [Sharpmake.Generate]
     public class FastBuildFunctionalTestSolution : Sharpmake.Solution
     {
@@ -513,15 +658,20 @@ namespace SharpmakeGen.FunctionalTests
             conf.AddProject<UsePrecompExe>(target);
             conf.AddProject<RequirePreBuildStep>(target);
             conf.AddProject<PostBuildCopySingleFileTest>(target);
+            conf.AddProject<PostBuildCopyDirNoPatternTest>(target);
             conf.AddProject<PostBuildCopyDirTest>(target);
             conf.AddProject<PostBuildExecuteTest>(target);
             conf.AddProject<PostBuildTestExecution>(target);
+            conf.AddProject<PostBuildStampTest>(target);
             conf.AddProject<ExplicitlyOrderedPostBuildTest>(target);
+            conf.AddProject<SimpleExeWithLib>(target);
+            conf.AddProject<AllCppWithDotCExe>(target);
 
             if (target.Blob == Blob.FastBuildUnitys)
             {
                 conf.AddProject<SpanMultipleSrcDirsFBUnityInclude>(target);
                 conf.AddProject<SpanMultipleSrcDirsFBUnityExclude>(target);
+                conf.AddProject<SpanMultipleSrcDirsFBUnityIsolate>(target);
             }
             else if (target.Blob == Blob.NoBlob)
             {
@@ -536,12 +686,19 @@ namespace SharpmakeGen.FunctionalTests
         [Sharpmake.Main]
         public static void SharpmakeMain(Sharpmake.Arguments arguments)
         {
+            CommandLine.ExecuteOnType(typeof(FunctionalTestArguments));
+
             FileInfo fileInfo = Util.GetCurrentSharpmakeFileInfo();
             string sharpmakeRootDirectory = Util.SimplifyPath(Path.Combine(fileInfo.DirectoryName, "..", ".."));
 
             FastBuildSettings.FastBuildMakeCommand = Path.Combine(sharpmakeRootDirectory, @"tools\FastBuild\Windows-x64\FBuild.exe");
             FastBuildSettings.FastBuildWait = true;
             FastBuildSettings.WriteAllConfigsSection = true;
+
+            // This is just to insure that we are able to generate some custom property section when referenced from a Compiler section
+            FastBuildSettings.AdditionalPropertyGroups.Add("function TestCustomProperties()", new List<string> { "Print('Hello Custom Property')", "Print('Hello Custom Property2')" });
+            FastBuildSettings.AdditionalCompilerPropertyGroups.Add("Compiler-x64-vs2019", "function TestCustomProperties()");
+            FastBuildSettings.AdditionalCompilerSettings.Add("Compiler-x64-vs2019", new List<string> { "TestCustomProperties()" });
 
             KitsRootPaths.SetUseKitsRootForDevEnv(DevEnv.vs2019, KitsRootEnum.KitsRoot10, Options.Vc.General.WindowsTargetPlatformVersion.v10_0_19041_0);
 

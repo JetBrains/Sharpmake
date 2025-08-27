@@ -1,16 +1,6 @@
-﻿// Copyright (c) 2017-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
 using System.Collections.Generic;
 using Sharpmake.Generators.Apple;
 using Sharpmake.Generators.FastBuild;
@@ -67,6 +57,12 @@ namespace Sharpmake.Generators
             Bff.InitializeBuilder(builder);
         }
 
+        public void BeforeGenerate()
+        {
+            // Insure we always have a command generator before starting the actual generation
+            FastBuildSettings.MakeCommandGenerator ??= new Bff.FastBuildDefaultCommandGenerator();
+        }
+
         public void Generate(Builder builder,
                              Project project,
                              List<Project.Configuration> configurations,
@@ -88,7 +84,8 @@ namespace Sharpmake.Generators
             }
             else
             {
-                switch (configurations[0].Target.GetFragment<DevEnv>())
+                DevEnv devEnv = configurations[0].Target.GetFragment<DevEnv>();
+                switch (devEnv)
                 {
                     case DevEnv.make:
                         {
@@ -101,12 +98,13 @@ namespace Sharpmake.Generators
                     case DevEnv.vs2015:
                     case DevEnv.vs2017:
                     case DevEnv.vs2019:
+                    case DevEnv.vs2022:
                         {
                             VcxprojGenerator.Generate(builder, project, configurations, projectFile, generatedFiles, skipFiles);
                             BffGenerator.Generate(builder, project, configurations, projectFile, generatedFiles, skipFiles);
                             break;
                         }
-                    case DevEnv.xcode4ios:
+                    case DevEnv.xcode:
                         {
                             XCodeProjectGenerator.Generate(builder, project, configurations, projectFile, generatedFiles, skipFiles);
                             BffGenerator.Generate(builder, project, configurations, projectFile, generatedFiles, skipFiles);
@@ -114,7 +112,7 @@ namespace Sharpmake.Generators
                         }
                     default:
                         {
-                            throw new Error("Generate called with unknown DevEnv: " + configurations[0].Target.GetFragment<DevEnv>());
+                            throw new Error("Generate called with unknown DevEnv: " + devEnv);
                         }
                 }
             }
@@ -127,7 +125,12 @@ namespace Sharpmake.Generators
                              List<string> generatedFiles,
                              List<string> skipFiles)
         {
-            if (configurations[0].Platform == Platform.ios || configurations[0].Platform == Platform.mac)
+            if (configurations[0].Platform == Platform.ios ||
+                configurations[0].Platform == Platform.mac ||
+                configurations[0].Platform == Platform.tvos ||
+                configurations[0].Platform == Platform.watchos ||
+                configurations[0].Platform == Platform.maccatalyst
+            )
             {
                 XCWorkspaceGenerator.Generate(builder, solution, configurations, solutionFile, generatedFiles, skipFiles);
                 if (UtilityMethods.HasFastBuildConfig(configurations))
@@ -137,7 +140,8 @@ namespace Sharpmake.Generators
             }
             else
             {
-                switch (configurations[0].Target.GetFragment<DevEnv>())
+                DevEnv devEnv = configurations[0].Target.GetFragment<DevEnv>();
+                switch (devEnv)
                 {
                     case DevEnv.make:
                         {
@@ -150,6 +154,7 @@ namespace Sharpmake.Generators
                     case DevEnv.vs2015:
                     case DevEnv.vs2017:
                     case DevEnv.vs2019:
+                    case DevEnv.vs2022:
                         {
                             if (UtilityMethods.HasFastBuildConfig(configurations))
                             {
@@ -161,7 +166,7 @@ namespace Sharpmake.Generators
                         }
                     default:
                         {
-                            throw new Error("Generate called with unknown DevEnv: " + configurations[0].Target.GetFragment<DevEnv>());
+                            throw new Error("Generate called with unknown DevEnv: " + devEnv);
                         }
                 }
             }
