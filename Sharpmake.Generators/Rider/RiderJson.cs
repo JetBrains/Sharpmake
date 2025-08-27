@@ -130,7 +130,7 @@ namespace Sharpmake.Generators.Rider
 
                 if (configuration.IsFastBuild)
                 {
-                    FastBuildMakeCommandGenerator = new Bff.FastBuildDefaultNMakeCommandGenerator();
+                    FastBuildMakeCommandGenerator = new Bff.FastBuildDefaultCommandGenerator();
                     
                     var fastBuildCommandLineOptions = FastBuildMakeCommandGenerator.GetArguments(Configuration);
                     fastBuildCommandLineOptions.Add(" -config $(SolutionName)" + FastBuildSettings.FastBuildConfigFileExtension);
@@ -441,7 +441,7 @@ namespace Sharpmake.Generators.Rider
         {
             var unresolvedCommand = Template.FastBuildBuildCommand;
             using (context.Resolver.NewScopedParameter("BuildCommand",
-                context.FastBuildMakeCommandGenerator.GetCommand(
+                context.FastBuildMakeCommandGenerator.GetArguments(
                     commandType,
                     context.Configuration, context.FastBuildArguments)))
             {

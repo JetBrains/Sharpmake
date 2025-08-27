@@ -532,13 +532,7 @@ namespace Sharpmake.Generators.VisualStudio
                         if (conf.IsFastBuild)
                         {
                             string commandLine = conf.GetFastBuildCommandLineArguments();
-                            var fastBuildCommandLineOptions = FastBuildMakeCommandGenerator.GetArguments(conf);
-
-                            if (!string.IsNullOrEmpty(FastBuildCustomArguments))
-                                fastBuildCommandLineOptions.Add(FastBuildCustomArguments);
-
-                            string commandLine = string.Join(" ", fastBuildCommandLineOptions);
-
+                          
                             // Make the commandline written in the bff available, except the master bff -config
                             Bff.SetCommandLineArguments(conf, commandLine);
 
